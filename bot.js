@@ -365,19 +365,42 @@ _Note: These are estimates based on visual analysis._`;
 // Start message
 bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
-  if (chatId.toString() === process.env.CHAT_ID) {
-    bot.sendMessage(
-      chatId,
-      '👋 Welcome to Food Analyst Bot!\n\n' +
-      '📸 Send me a photo of your food and I\'ll analyze its nutritional content.\n\n' +
-      '📋 Available Commands:\n' +
-      '/goals - Set your daily nutrition goals\n' +
-      '/summary - Get today\'s nutrition summary\n' +
-      '/progress - Check your progress toward goals\n\n' +
-      '*Works in both direct messages and channel posts!*\n\n' +
-      'Powered by Claude AI 🤖'
-    );
-  }
+  // Allow both channel and direct messages
+  const isAuthorized = chatId.toString() === process.env.CHAT_ID || msg.chat.type === 'private';
+  if (!isAuthorized) return;
+  
+  bot.sendMessage(
+    chatId,
+    '👋 Welcome to Food Analyst Bot!\n\n' +
+    '📸 Send me a photo of your food and I\'ll analyze its nutritional content.\n\n' +
+    '📋 For available commands, type /help\n\n' +
+    '*Works in both direct messages and channel posts!*\n\n' +
+    'Powered by Claude AI 🤖'
+  );
+});
+
+// Help command
+bot.onText(/\/help/, (msg) => {
+  const chatId = msg.chat.id;
+  // Allow both channel and direct messages
+  const isAuthorized = chatId.toString() === process.env.CHAT_ID || msg.chat.type === 'private';
+  if (!isAuthorized) return;
+  
+  bot.sendMessage(
+    chatId,
+    '🤖 *Food Analyst Bot Commands*\n\n' +
+    '📸 *Food Analysis:*\n' +
+    'Simply send a photo of your food to get nutritional information\n\n' +
+    '📋 *Tracking Commands:*\n' +
+    '/goals - Set your daily nutrition goals\n' +
+    '/summary - Get today\'s nutrition summary\n' +
+    '/progress - Check your progress toward goals\n\n' +
+    'ℹ️ *Usage Tips:*\n' +
+    '- Works in both direct messages and channel posts\n' +
+    '- Goals are set in format: calories protein carbs fat\n' +
+    '- Example: /goals 2000 150 250 70\n\n' +
+    'Powered by Claude AI 🤖'
+  , { parse_mode: 'Markdown' });
 });
 
 // Set nutrition goals
