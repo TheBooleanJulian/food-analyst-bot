@@ -3,12 +3,13 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "start": "node bot.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
-  "description": "",
+  "license": "MIT",
+  "description": "A Telegram bot that analyzes food images and provides nutritional information using Claude AI.",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
     "dotenv": "^17.2.3",
