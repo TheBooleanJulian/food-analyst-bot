@@ -425,11 +425,19 @@ bot.onText(/\/goals/, async (msg) => {
   
   // Set up listener for goal input
   const goalListener = bot.on('message', async (responseMsg) => {
+    // Ensure we only process messages from the same chat
     if (responseMsg.chat.id !== chatId) return;
     
-    if (responseMsg.text === '/cancel') {
+    // Remove the listener immediately to prevent stacking
+    try {
       bot.removeTextListener(goalListener);
       bot.removeListener(goalListener);
+    } catch (e) {
+      // Ignore errors if listener is already removed
+    }
+    
+    // Handle cancellation
+    if (responseMsg.text === '/cancel') {
       bot.sendMessage(chatId, 'Goal setting cancelled.');
       return;
     }
@@ -445,8 +453,6 @@ bot.onText(/\/goals/, async (msg) => {
       };
       
       await saveGoals(goals);
-      bot.removeTextListener(goalListener);
-      bot.removeListener(goalListener);
       
       bot.sendMessage(
         chatId,
@@ -545,11 +551,19 @@ bot.onText(/\/feedback/, (msg) => {
   
   // Set up listener for feedback input
   const feedbackListener = bot.on('message', async (responseMsg) => {
+    // Ensure we only process messages from the same chat
     if (responseMsg.chat.id !== chatId) return;
     
-    if (responseMsg.text === '/cancel') {
+    // Remove the listener immediately to prevent stacking
+    try {
       bot.removeTextListener(feedbackListener);
       bot.removeListener(feedbackListener);
+    } catch (e) {
+      // Ignore errors if listener is already removed
+    }
+    
+    // Handle cancellation
+    if (responseMsg.text === '/cancel') {
       bot.sendMessage(chatId, 'Feedback cancelled.');
       return;
     }
@@ -565,8 +579,6 @@ bot.onText(/\/feedback/, (msg) => {
         `Date: ${new Date().toLocaleString()}\n\n` +
         `📝 Message:\n${responseMsg.text}`;
       
-      await bot.sendMessage(chatId, 'Thank you for your feedback! I\'ve forwarded it to my developer.');
-      
       // Send feedback to developer if chat ID is configured
       if (DEVELOPER_CHAT_ID) {
         await bot.sendMessage(DEVELOPER_CHAT_ID, feedbackMessage, { parse_mode: 'Markdown' });
@@ -576,14 +588,10 @@ bot.onText(/\/feedback/, (msg) => {
         console.log('Note: Set DEVELOPER_CHAT_ID in environment variables to receive feedback directly.');
       }
       
-      bot.removeTextListener(feedbackListener);
-      bot.removeListener(feedbackListener);
+      await bot.sendMessage(chatId, 'Thank you for your feedback! I\'ve forwarded it to my developer.');
     } catch (error) {
       console.error('Error sending feedback:', error);
       bot.sendMessage(chatId, 'Sorry, there was an error sending your feedback. Please try again later.');
-      // Make sure to remove listener even if there's an error
-      bot.removeTextListener(feedbackListener);
-      bot.removeListener(feedbackListener);
     }
   });
   
