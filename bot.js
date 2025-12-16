@@ -248,8 +248,8 @@ Base estimates on typical serving sizes. Be specific about the food identified.`
 bot.on('photo', async (msg) => {
   const chatId = msg.chat.id;
   
-  // Only respond to configured chat
-  if (chatId.toString() !== process.env.CHAT_ID) {
+  // Only respond to configured chat or private messages
+  if (chatId.toString() !== process.env.CHAT_ID && msg.chat.type !== 'private') {
     return;
   }
 
@@ -374,6 +374,7 @@ bot.onText(/\/start/, (msg) => {
       '/goals - Set your daily nutrition goals\n' +
       '/summary - Get today\'s nutrition summary\n' +
       '/progress - Check your progress toward goals\n\n' +
+      '*Works in both direct messages and channel posts!*\n\n' +
       'Powered by Claude AI 🤖'
     );
   }
@@ -382,7 +383,9 @@ bot.onText(/\/start/, (msg) => {
 // Set nutrition goals
 bot.onText(/\/goals/, async (msg) => {
   const chatId = msg.chat.id;
-  if (chatId.toString() !== process.env.CHAT_ID) return;
+  // Allow both channel and direct messages
+  const isAuthorized = chatId.toString() === process.env.CHAT_ID || msg.chat.type === 'private';
+  if (!isAuthorized) return;
   
   bot.sendMessage(
     chatId,
@@ -439,7 +442,9 @@ bot.onText(/\/goals/, async (msg) => {
 // Get daily summary
 bot.onText(/\/summary/, async (msg) => {
   const chatId = msg.chat.id;
-  if (chatId.toString() !== process.env.CHAT_ID) return;
+  // Allow both channel and direct messages
+  const isAuthorized = chatId.toString() === process.env.CHAT_ID || msg.chat.type === 'private';
+  if (!isAuthorized) return;
   
   const summary = await getDailySummary(chatId);
   
@@ -453,7 +458,9 @@ bot.onText(/\/summary/, async (msg) => {
 // Check progress toward goals
 bot.onText(/\/progress/, async (msg) => {
   const chatId = msg.chat.id;
-  if (chatId.toString() !== process.env.CHAT_ID) return;
+  // Allow both channel and direct messages
+  const isAuthorized = chatId.toString() === process.env.CHAT_ID || msg.chat.type === 'private';
+  if (!isAuthorized) return;
   
   const totals = await getTodayTotals(chatId);
   const goals = await loadGoals();
