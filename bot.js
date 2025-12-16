@@ -465,6 +465,16 @@ bot.onText(/\/goals/, async (msg) => {
       );
     }
   });
+  
+  // Auto-remove listener after 5 minutes to prevent stacking
+  setTimeout(() => {
+    try {
+      bot.removeTextListener(goalListener);
+      bot.removeListener(goalListener);
+    } catch (e) {
+      // Ignore errors if listener is already removed
+    }
+  }, 5 * 60 * 1000); // 5 minutes
 });
 
 // Get daily summary
@@ -571,8 +581,21 @@ bot.onText(/\/feedback/, (msg) => {
     } catch (error) {
       console.error('Error sending feedback:', error);
       bot.sendMessage(chatId, 'Sorry, there was an error sending your feedback. Please try again later.');
+      // Make sure to remove listener even if there's an error
+      bot.removeTextListener(feedbackListener);
+      bot.removeListener(feedbackListener);
     }
   });
+  
+  // Auto-remove listener after 5 minutes to prevent stacking
+  setTimeout(() => {
+    try {
+      bot.removeTextListener(feedbackListener);
+      bot.removeListener(feedbackListener);
+    } catch (e) {
+      // Ignore errors if listener is already removed
+    }
+  }, 5 * 60 * 1000); // 5 minutes
 });
 
 console.log('🤖 Food Analyst Bot is running...');
