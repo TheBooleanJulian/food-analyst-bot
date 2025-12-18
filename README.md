@@ -30,6 +30,7 @@ A Telegram-based AI assistant that analyzes uploaded food images and provides de
    TELEGRAM_TOKEN=your_telegram_bot_token
    ANTHROPIC_API_KEY=your_anthropic_api_key
    DEVELOPER_CHAT_ID=your_telegram_user_id
+   ENCRYPTION_KEY=your_32_character_encryption_key_here
    ```
 4. Run the bot: `npm start`
 

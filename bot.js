@@ -6,6 +6,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const cron = require('node-cron');
 const redis = require('redis');
+const crypto = require('crypto');
 
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -19,6 +20,42 @@ redisClient.on('error', (err) => console.error('Redis Client Error', err));
 
 // Connect to Redis
 redisClient.connect().catch(console.error);
+
+// Encryption utilities
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex').slice(0, 32);
+const IV_LENGTH = 16; // For AES, this is always 16
+
+function encrypt(text) {
+  if (!text) return text;
+  
+  try {
+    const iv = crypto.randomBytes(IV_LENGTH);
+    const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
+    let encrypted = cipher.update(text);
+    encrypted = Buffer.concat([encrypted, cipher.final()]);
+    return iv.toString('hex') + ':' + encrypted.toString('hex');
+  } catch (error) {
+    console.error('Encryption error:', error);
+    return text; // Return original text if encryption fails
+  }
+}
+
+function decrypt(text) {
+  if (!text || !text.includes(':')) return text;
+  
+  try {
+    const textParts = text.split(':');
+    const iv = Buffer.from(textParts.shift(), 'hex');
+    const encryptedText = Buffer.from(textParts.join(':'), 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
+    let decrypted = decipher.update(encryptedText);
+    decrypted = Buffer.concat([decrypted, decipher.final()]);
+    return decrypted.toString();
+  } catch (error) {
+    console.error('Decryption error:', error);
+    return text; // Return original text if decryption fails
+  }
+}
 
 // Developer Telegram ID (for feedback)
 const DEVELOPER_CHAT_ID = process.env.DEVELOPER_CHAT_ID || null;
@@ -117,11 +154,18 @@ async function saveUserInfo(userId, userInfo) {
     const usersData = await redisClient.get('users');
     const users = usersData ? JSON.parse(usersData) : {};
     
-    // Update user info
-    users[userId] = {
+    // Encrypt sensitive user information
+    const encryptedUserInfo = {
       ...userInfo,
+      firstName: userInfo.firstName ? encrypt(userInfo.firstName) : undefined,
+      lastName: userInfo.lastName ? encrypt(userInfo.lastName) : undefined,
+      username: userInfo.username ? encrypt(userInfo.username) : undefined,
+      fullName: userInfo.fullName ? encrypt(userInfo.fullName) : undefined,
       lastSeen: new Date().toISOString()
     };
+    
+    // Update user info
+    users[userId] = encryptedUserInfo;
     
     // Save updated users data to Redis
     await redisClient.set('users', JSON.stringify(users));
@@ -980,7 +1024,14 @@ bot.onText(/\/users/, async (msg) => {
     
     // Convert to array and sort by last seen
     const userList = Object.entries(users)
-      .map(([id, info]) => ({ id, ...info }))
+      .map(([id, info]) => ({ 
+        id, 
+        ...info,
+        firstName: info.firstName ? decrypt(info.firstName) : undefined,
+        lastName: info.lastName ? decrypt(info.lastName) : undefined,
+        username: info.username ? decrypt(info.username) : undefined,
+        fullName: info.fullName ? decrypt(info.fullName) : undefined
+      }))
       .sort((a, b) => new Date(b.lastSeen) - new Date(a.lastSeen))
       .slice(0, 10); // Show only last 10 users
     
@@ -1037,4 +1088,18 @@ redisClient.on('connect', () => {
     .catch(err => {
       console.error('❌ Redis read/write test error:', err);
     });
+    
+  // Test encryption/decryption
+  const testData = 'This is a test string for encryption';
+  const encrypted = encrypt(testData);
+  const decrypted = decrypt(encrypted);
+  
+  if (testData === decrypted) {
+    console.log('✅ Encryption/decryption test passed');
+  } else {
+    console.log('❌ Encryption/decryption test failed');
+    console.log('Original:', testData);
+    console.log('Encrypted:', encrypted);
+    console.log('Decrypted:', decrypted);
+  }
 });
