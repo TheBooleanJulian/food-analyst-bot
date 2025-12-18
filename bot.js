@@ -5,9 +5,20 @@ const https = require('https');
 const fs = require('fs').promises;
 const path = require('path');
 const cron = require('node-cron');
+const redis = require('redis');
 
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+// Initialize Redis client
+const redisClient = redis.createClient({
+  url: process.env.REDIS_URL || 'redis://redis:6379'
+});
+
+redisClient.on('error', (err) => console.error('Redis Client Error', err));
+
+// Connect to Redis
+redisClient.connect().catch(console.error);
 
 // Developer Telegram ID (for feedback)
 const DEVELOPER_CHAT_ID = process.env.DEVELOPER_CHAT_ID || null;
@@ -17,6 +28,7 @@ const DATA_DIR = path.join(__dirname, 'data');
 const NUTRITION_FILE = path.join(DATA_DIR, 'nutrition.json');
 const GOALS_FILE = path.join(DATA_DIR, 'goals.json');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
+const MESSAGE_ASSOCIATIONS_FILE = path.join(DATA_DIR, 'message_associations.json');
 
 // Initialize data directory
 async function initializeDataDirectory() {
@@ -49,13 +61,20 @@ async function initializeDataDirectory() {
   } catch {
     await fs.writeFile(USERS_FILE, JSON.stringify({}));
   }
+  
+  // Create message associations file if it doesn't exist
+  try {
+    await fs.access(MESSAGE_ASSOCIATIONS_FILE);
+  } catch {
+    await fs.writeFile(MESSAGE_ASSOCIATIONS_FILE, JSON.stringify({}));
+  }
 }
 
 // Load nutrition data
 async function loadNutritionData() {
   try {
-    const data = await fs.readFile(NUTRITION_FILE, 'utf8');
-    return JSON.parse(data);
+    const data = await redisClient.get('nutrition_data');
+    return data ? JSON.parse(data) : {};
   } catch {
     return {};
   }
@@ -63,14 +82,19 @@ async function loadNutritionData() {
 
 // Save nutrition data
 async function saveNutritionData(data) {
-  await fs.writeFile(NUTRITION_FILE, JSON.stringify(data, null, 2));
+  await redisClient.set('nutrition_data', JSON.stringify(data));
 }
 
 // Load goals
 async function loadGoals() {
   try {
-    const data = await fs.readFile(GOALS_FILE, 'utf8');
-    return JSON.parse(data);
+    const data = await redisClient.get('goals');
+    return data ? JSON.parse(data) : {
+      calories: 2000,
+      protein: 150,
+      carbs: 250,
+      fat: 70
+    };
   } catch {
     return {
       calories: 2000,
@@ -83,21 +107,316 @@ async function loadGoals() {
 
 // Save goals
 async function saveGoals(goals) {
-  await fs.writeFile(GOALS_FILE, JSON.stringify(goals, null, 2));
+  await redisClient.set('goals', JSON.stringify(goals));
 }
 
 // Save user information
 async function saveUserInfo(userId, userInfo) {
   try {
-    const data = await fs.readFile(USERS_FILE, 'utf8');
-    const users = JSON.parse(data);
+    // Get existing users data from Redis
+    const usersData = await redisClient.get('users');
+    const users = usersData ? JSON.parse(usersData) : {};
+    
+    // Update user info
     users[userId] = {
       ...userInfo,
       lastSeen: new Date().toISOString()
     };
-    await fs.writeFile(USERS_FILE, JSON.stringify(users, null, 2));
+    
+    // Save updated users data to Redis
+    await redisClient.set('users', JSON.stringify(users));
   } catch (error) {
-    console.error('Error saving user info:', error);
+    console.error('Error saving user info to Redis:', error);
+  }
+}
+
+// Load message associations
+async function loadMessageAssociations() {
+  try {
+    const data = await redisClient.get('message_associations');
+    return data ? JSON.parse(data) : {};
+  } catch {
+    return {};
+  }
+}
+
+// Save message associations
+async function saveMessageAssociations(data) {
+  await redisClient.set('message_associations', JSON.stringify(data));
+}
+
+// Parse user correction input
+function parseUserCorrection(input) {
+  // Simple parser for corrections like "500ml coke" or "coffee 200ml"
+  const lowerInput = input.toLowerCase().trim();
+  
+  // Extract serving size (e.g., 500ml, 200g, 1 cup)
+  const servingSizeMatch = lowerInput.match(/(\d+(?:\.\d+)?)\s*(ml|l|g|kg|oz|cup|cups|tbsp|tsp)/);
+  let servingSize = "Standard serving";
+  let quantity = 1;
+  let unit = "serving";
+  
+  if (servingSizeMatch) {
+    quantity = parseFloat(servingSizeMatch[1]);
+    unit = servingSizeMatch[2];
+    servingSize = `${quantity}${unit}`;
+  }
+  
+  // Extract food name (everything except the serving size part)
+  let foodName = lowerInput;
+  if (servingSizeMatch) {
+    foodName = foodName.replace(servingSizeMatch[0], '').trim();
+  }
+  
+  // Clean up the food name
+  foodName = foodName.replace(/^\W+|\W+$/g, '') || 'Unknown food';
+  
+  // Capitalize first letter
+  foodName = foodName.charAt(0).toUpperCase() + foodName.slice(1);
+  
+  // Estimate nutrition based on common foods and serving sizes
+  const nutritionEstimates = estimateNutrition(foodName, quantity, unit);
+  
+  return {
+    food_name: foodName,
+    calories: nutritionEstimates.calories,
+    protein: nutritionEstimates.protein,
+    carbs: nutritionEstimates.carbs,
+    fat: nutritionEstimates.fat,
+    serving_size: servingSize
+  };
+}
+
+// Estimate nutrition based on food name and serving size
+function estimateNutrition(foodName, quantity, unit) {
+  // This is a simplified estimation - in a real app, you'd use a proper nutrition database
+  const baseNutrition = getBaseNutrition(foodName);
+  
+  // Calculate multiplier based on serving size
+  const multiplier = calculateServingMultiplier(quantity, unit);
+  
+  return {
+    calories: Math.round(baseNutrition.calories * multiplier),
+    protein: parseFloat((baseNutrition.protein * multiplier).toFixed(1)),
+    carbs: parseFloat((baseNutrition.carbs * multiplier).toFixed(1)),
+    fat: parseFloat((baseNutrition.fat * multiplier).toFixed(1))
+  };
+}
+
+// Get base nutrition values for common foods (per standard serving)
+function getBaseNutrition(foodName) {
+  const foodDatabase = {
+    'Coffee': { calories: 5, protein: 0.3, carbs: 0, fat: 0 },
+    'Coke': { calories: 140, protein: 0, carbs: 39, fat: 0 },
+    'Cola': { calories: 140, protein: 0, carbs: 39, fat: 0 },
+    'Apple': { calories: 95, protein: 0.5, carbs: 25, fat: 0.3 },
+    'Banana': { calories: 105, protein: 1.3, carbs: 27, fat: 0.4 },
+    'Orange': { calories: 62, protein: 1.2, carbs: 15, fat: 0.2 },
+    'Bread': { calories: 80, protein: 3, carbs: 15, fat: 1 },
+    'Rice': { calories: 205, protein: 4, carbs: 45, fat: 0.4 },
+    'Chicken': { calories: 165, protein: 31, carbs: 0, fat: 3.6 },
+    'Beef': { calories: 250, protein: 26, carbs: 0, fat: 15 },
+    'Fish': { calories: 120, protein: 22, carbs: 0, fat: 3 },
+    'Salad': { calories: 15, protein: 1, carbs: 3, fat: 0.2 },
+    'Pasta': { calories: 200, protein: 7, carbs: 43, fat: 1 },
+    'Pizza': { calories: 285, protein: 12, carbs: 36, fat: 10 },
+    'Burger': { calories: 295, protein: 15, carbs: 30, fat: 12 },
+    'Sandwich': { calories: 220, protein: 9, carbs: 25, fat: 9 },
+    'Milk': { calories: 103, protein: 8, carbs: 12, fat: 2.4 },
+    'Cheese': { calories: 113, protein: 7, carbs: 1, fat: 9 },
+    'Yogurt': { calories: 59, protein: 10, carbs: 3.6, fat: 0.4 },
+    'Ice cream': { calories: 207, protein: 3.5, carbs: 24, fat: 11 },
+    'Cake': { calories: 237, protein: 2.3, carbs: 33, fat: 10 },
+    'Cookie': { calories: 78, protein: 0.9, carbs: 10, fat: 4 },
+    'Chocolate': { calories: 155, protein: 1.5, carbs: 15, fat: 9 },
+    'Water': { calories: 0, protein: 0, carbs: 0, fat: 0 },
+    'Tea': { calories: 2, protein: 0, carbs: 0.5, fat: 0 },
+    'Juice': { calories: 110, protein: 0.5, carbs: 26, fat: 0.3 },
+    'Soda': { calories: 140, protein: 0, carbs: 39, fat: 0 },
+    'Beer': { calories: 153, protein: 1.6, carbs: 13, fat: 0 },
+    'Wine': { calories: 125, protein: 0.1, carbs: 3.8, fat: 0 },
+    'Default': { calories: 100, protein: 5, carbs: 15, fat: 3 }
+  };
+  
+  // Try to find a match (case insensitive)
+  for (const [key, value] of Object.entries(foodDatabase)) {
+    if (foodName.toLowerCase().includes(key.toLowerCase())) {
+      return value;
+    }
+  }
+  
+  // Return default if no match found
+  return foodDatabase['Default'];
+}
+
+// Calculate serving multiplier based on quantity and unit
+function calculateServingMultiplier(quantity, unit) {
+  // Standard serving multipliers (these would ideally come from a database)
+  const unitMultipliers = {
+    'ml': quantity / 250,    // Standard glass is 250ml
+    'l': quantity * 4,       // 1L = 4 * 250ml
+    'g': quantity / 100,     // Standard serving is 100g
+    'kg': quantity * 10,     // 1kg = 10 * 100g
+    'oz': quantity / 4,      // 4 oz = 113g standard serving
+    'cup': quantity,         // 1 cup is standard
+    'cups': quantity,        // plural
+    'tbsp': quantity / 16,   // 16 tbsp = 1 cup
+    'tsp': quantity / 48,    // 48 tsp = 1 cup
+    'serving': 1             // Default
+  };
+  
+  return unitMultipliers[unit] || 1;
+}
+
+async function saveMessageAssociation(messageId, chatId, nutritionData) {
+  const associations = await loadMessageAssociations();
+  
+  // Store the association with chat ID and nutrition data
+  associations[messageId] = {
+    chatId: chatId,
+    nutritionData: nutritionData,
+    timestamp: new Date().toISOString()
+  };
+  
+  await saveMessageAssociations(associations);
+}
+
+// Update nutrition data based on message ID
+async function updateNutritionByMessageId(messageId, updatedNutritionData) {
+  const associations = await loadMessageAssociations();
+  
+  if (!associations[messageId]) {
+    throw new Error('No association found for this message');
+  }
+  
+  const association = associations[messageId];
+  
+  // Load current nutrition data
+  const nutritionData = await loadNutritionData();
+  
+  // Find and update the specific entry
+  const today = new Date().toISOString().split('T')[0];
+  
+  if (nutritionData[association.chatId] && nutritionData[association.chatId][today]) {
+    // Find the entry that matches the original nutrition data
+    const entries = nutritionData[association.chatId][today];
+    const index = entries.findIndex(entry => 
+      entry.food_name === association.nutritionData.food_name &&
+      entry.calories === association.nutritionData.calories &&
+      entry.protein === association.nutritionData.protein &&
+      entry.carbs === association.nutritionData.carbs &&
+      entry.fat === association.nutritionData.fat
+    );
+    
+    if (index !== -1) {
+      // Update the entry with new data
+      nutritionData[association.chatId][today][index] = {
+        ...nutritionData[association.chatId][today][index],
+        ...updatedNutritionData,
+        timestamp: new Date().toISOString()
+      };
+      
+      await saveNutritionData(nutritionData);
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+// Process user correction to bot analysis
+async function processCorrection(msg) {
+  const chatId = msg.chat.id;
+  const replyMessageId = msg.reply_to_message.message_id;
+  
+  try {
+    // Parse the user's correction
+    const correction = parseUserCorrection(msg.text);
+    
+    // Update the nutrition data
+    const success = await updateNutritionByMessageId(replyMessageId, correction);
+    
+    if (success) {
+      // Send confirmation to user
+      await bot.sendMessage(chatId, 
+        `✅ Analysis updated successfully!\n\n` +
+        `🍽️ Food: ${correction.food_name}\n` +
+        `📊 Calories: ${correction.calories} kcal\n` +
+        `🥩 Protein: ${correction.protein}g\n` +
+        `🍞 Carbs: ${correction.carbs}g\n` +
+        `🧈 Fat: ${correction.fat}g\n` +
+        `📏 Serving: ${correction.serving_size}`,
+        { reply_to_message_id: msg.message_id }
+      );
+      
+      // Update the original message with the corrected information
+      try {
+        const associations = await loadMessageAssociations();
+        const association = associations[replyMessageId];
+        
+        if (association) {
+          // Get updated totals
+          const totals = await getTodayTotals(chatId);
+          const goals = await loadGoals();
+          
+          // Format updated response
+          const updatedResponse = `🍽️ **${correction.food_name}**
+
+` +
+            `📊 **Nutritional Information:**
+` +
+            `- Calories: ${correction.calories} kcal
+` +
+            `- Protein: ${correction.protein}g
+` +
+            `- Carbs: ${correction.carbs}g
+` +
+            `- Fat: ${correction.fat}g
+
+` +
+            `📏 Serving: ${correction.serving_size}
+` +
+            `🎯 Confidence: manually corrected
+
+` +
+            `📊 **Today's Totals:**
+` +
+            `- Calories: ${totals.calories}/${goals.calories} kcal
+` +
+            `- Protein: ${totals.protein}/${goals.protein}g
+` +
+            `- Carbs: ${totals.carbs}/${goals.carbs}g
+` +
+            `- Fat: ${totals.fat}/${goals.fat}g
+
+` +
+            `_Note: Updated based on user correction._
+` +
+            `Powered by _Claude AI 🤖_`;
+          
+          await bot.editMessageText(updatedResponse, {
+            chat_id: chatId,
+            message_id: replyMessageId,
+            parse_mode: 'Markdown'
+          });
+        }
+      } catch (error) {
+        console.error('Error updating original message:', error);
+      }
+    } else {
+      await bot.sendMessage(chatId, 
+        '❌ Could not find the original analysis to update.',
+        { reply_to_message_id: msg.message_id }
+      );
+    }
+  } catch (error) {
+    console.error('Error processing correction:', error);
+    await bot.sendMessage(chatId, 
+      '❌ Sorry, I couldn\'t process your correction. Please make sure your message follows the format:\n\n' +
+      '"500ml coke" or "coffee 200ml"\n\n' +
+      'I\'ll try to interpret the food item and serving size from your message.',
+      { reply_to_message_id: msg.message_id }
+    );
   }
 }
 
@@ -316,7 +635,9 @@ bot.on('photo', async (msg) => {
 _Note: These are estimates based on visual analysis._
 Powered by _Claude AI 🤖_`;
 
-    await bot.sendMessage(chatId, response, { parse_mode: 'Markdown' });
+    // Save message association for future corrections
+    const sentMessage = await bot.sendMessage(chatId, response, { parse_mode: 'Markdown' });
+    await saveMessageAssociation(sentMessage.message_id, chatId, nutrition);
     
   } catch (error) {
     console.error('Error:', error);
@@ -374,7 +695,9 @@ bot.on('channel_post', async (msg) => {
 
 _Note: These are estimates based on visual analysis._`;
 
-    await bot.sendMessage(chatId, response, { parse_mode: 'Markdown', reply_to_message_id: msg.message_id });
+    // Save message association for future corrections
+    const sentMessage = await bot.sendMessage(chatId, response, { parse_mode: 'Markdown', reply_to_message_id: msg.message_id });
+    await saveMessageAssociation(sentMessage.message_id, chatId, nutrition);
     
   } catch (error) {
     console.error('Error:', error);
@@ -649,8 +972,9 @@ bot.onText(/\/users/, async (msg) => {
   }
   
   try {
-    const data = await fs.readFile(USERS_FILE, 'utf8');
-    const users = JSON.parse(data);
+    // Get users data from Redis
+    const usersData = await redisClient.get('users');
+    const users = usersData ? JSON.parse(usersData) : {};
     
     let response = '👥 *Recent Users*\n\n';
     
@@ -677,4 +1001,40 @@ bot.onText(/\/users/, async (msg) => {
   }
 });
 
+// Handle user replies to bot messages (for correcting analysis)
+bot.on('message', async (msg) => {
+  // Check if this message is a reply to another message
+  if (!msg.reply_to_message) return;
+  
+  // Check if the reply is to a bot message (from this bot)
+  if (msg.reply_to_message.from.id.toString() !== bot.options.polling.id.toString()) return;
+  
+  // Process the correction
+  try {
+    await processCorrection(msg);
+  } catch (error) {
+    console.error('Error processing correction:', error);
+    // Don't send error message to avoid spamming the user
+  }
+});
+
 console.log('🤖 Food Analyst Bot is running...');
+
+// Test Redis connection
+redisClient.on('connect', () => {
+  console.log('✅ Connected to Redis successfully');
+  
+  // Test Redis read/write
+  redisClient.set('test_key', 'test_value')
+    .then(() => redisClient.get('test_key'))
+    .then(value => {
+      if (value === 'test_value') {
+        console.log('✅ Redis read/write test passed');
+      } else {
+        console.log('❌ Redis read/write test failed');
+      }
+    })
+    .catch(err => {
+      console.error('❌ Redis read/write test error:', err);
+    });
+});
