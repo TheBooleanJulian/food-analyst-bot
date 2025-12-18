@@ -2,6 +2,19 @@
 
 A Telegram-based AI assistant that analyzes uploaded food images and provides detailed nutritional information using Anthropic's Claude AI.
 
+## Documentation
+
+For detailed information, please refer to:
+
+- [User Guide](USER_GUIDE.md) - Instructions for using the bot
+- [Technical Documentation](TECHNICAL.md) - Developer documentation and technical details
+
+## Quick Start
+
+1. Message [@foodanalystbot](https://t.me/foodanalystbot) on Telegram
+2. Send `/start` to begin
+3. Upload food photos to receive nutritional analysis
+
 ## Features
 
 - 📸 Upload food images via Telegram
@@ -12,43 +25,4 @@ A Telegram-based AI assistant that analyzes uploaded food images and provides de
 - 💬 Interactive commands for managing nutrition data
 - 🔐 Secure handling of API keys and user data
 
-## Commands
-
-- `/start` - Start the bot and get welcome message
-- `/help` - Display help information and available commands
-- `/goals` - Set or update your daily nutrition goals
-- `/summary` - Get your daily nutrition summary
-- `/progress` - View your progress toward nutrition goals
-- `/feedback` - Send feedback, bug reports, or suggestions
-
-## Setup
-
-1. Clone the repository
-2. Install dependencies: `npm install`
-3. Create a `.env` file with your API keys:
-   ```
-   TELEGRAM_TOKEN=your_telegram_bot_token
-   ANTHROPIC_API_KEY=your_anthropic_api_key
-   DEVELOPER_CHAT_ID=your_telegram_user_id
-   ENCRYPTION_KEY=your_32_character_encryption_key_here
-   ```
-4. Run the bot: `npm start`
-
-## Deployment
-
-The bot can be deployed to cloud platforms like Zeabur for 24/7 operation.
-
-## Technologies
-
-- Node.js
-- Telegraf.js (Telegram Bot API)
-- Anthropic Claude AI API
-- dotenv for environment management
-
-## Author
-
-Julian97
-
-## License
-
-MIT
+For detailed information about commands, setup, deployment, and technical details, please refer to the [User Guide](USER_GUIDE.md) and [Technical Documentation](TECHNICAL.md).
