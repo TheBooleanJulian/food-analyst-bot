@@ -590,7 +590,28 @@ async function downloadImage(fileId) {
 }
 
 // Analyze food with Claude
-async function analyzeFood(base64Image) {
+async function analyzeFood(base64Image, caption = null) {
+  // Build the prompt with optional caption context
+  let promptText = `Analyze this food image and provide nutritional estimates. 
+  
+Return ONLY a JSON object with this exact format (no markdown, no explanation):
+{
+  "food_name": "name of the dish",
+  "calories": number,
+  "protein": number,
+  "carbs": number,
+  "fat": number,
+  "serving_size": "description",
+  "confidence": "high/medium/low"
+}
+
+Base estimates on typical serving sizes. Be specific about the food identified.`;
+  
+  // If user provided a caption, include it as additional context
+  if (caption) {
+    promptText += `\n\nThe user has provided the following description of the food: "${caption}". Please consider this information when analyzing the image.`;
+  }
+  
   const message = await anthropic.messages.create({
     model: 'claude-sonnet-4-20250514',
     max_tokens: 1024,
@@ -607,20 +628,7 @@ async function analyzeFood(base64Image) {
         },
         {
           type: 'text',
-          text: `Analyze this food image and provide nutritional estimates. 
-          
-Return ONLY a JSON object with this exact format (no markdown, no explanation):
-{
-  "food_name": "name of the dish",
-  "calories": number,
-  "protein": number,
-  "carbs": number,
-  "fat": number,
-  "serving_size": "description",
-  "confidence": "high/medium/low"
-}
-
-Base estimates on typical serving sizes. Be specific about the food identified.`
+          text: promptText
         }
       ]
     }]
@@ -648,8 +656,11 @@ bot.on('photo', async (msg) => {
     const photo = msg.photo[msg.photo.length - 1];
     const base64Image = await downloadImage(photo.file_id);
     
-    // Analyze with Claude
-    const nutrition = await analyzeFood(base64Image);
+    // Extract caption if available
+    const caption = msg.caption;
+    
+    // Analyze with Claude, passing caption if available
+    const nutrition = await analyzeFood(base64Image, caption);
     
     // Save nutrition entry
     await addFoodEntry(chatId, nutrition);
@@ -709,8 +720,11 @@ bot.on('channel_post', async (msg) => {
     const photo = msg.photo[msg.photo.length - 1];
     const base64Image = await downloadImage(photo.file_id);
     
-    // Analyze with Claude
-    const nutrition = await analyzeFood(base64Image);
+    // Extract caption if available
+    const caption = msg.caption;
+    
+    // Analyze with Claude, passing caption if available
+    const nutrition = await analyzeFood(base64Image, caption);
     
     // Save nutrition entry
     await addFoodEntry(chatId, nutrition);

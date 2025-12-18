@@ -89,6 +89,7 @@ Sensitive user data is encrypted using AES-256-CBC:
   - Text command processing
   - Reply message detection
   - Message editing capabilities
+  - Caption extraction for enhanced analysis context
 
 ### Anthropic Claude AI API
 
@@ -108,7 +109,7 @@ Sensitive user data is encrypted using AES-256-CBC:
 
 ### Data Processing Functions
 
-1. **analyzeFood()**: Sends image to Claude AI and parses response
+1. **analyzeFood()**: Sends image to Claude AI and parses response, with optional caption context
 2. **downloadImage()**: Retrieves and converts Telegram images to base64
 3. **parseUserCorrection()**: Interprets user correction messages
 4. **estimateNutrition()**: Calculates nutrition based on food type and serving size

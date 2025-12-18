@@ -19,8 +19,11 @@ The Food Analyst Bot uses advanced AI to analyze photos of your food and provide
 1. Open a chat with [@foodanalystbot](https://t.me/foodanalystbot)
 2. Tap the paperclip icon or attachment button
 3. Select a photo of your food
-4. Send the photo to the bot
-5. Wait for the nutritional analysis
+4. (Optional) Add a caption describing the food or drink
+5. Send the photo to the bot
+6. Wait for the nutritional analysis
+
+Adding a caption helps the AI better understand what you're eating, especially for ambiguous images or specific preparations.
 
 ### 2. Viewing Analysis Results
 After sending a photo, the bot will respond with:
@@ -117,6 +120,7 @@ If you're experiencing issues not covered here:
 3. **Good Angles**: Capture the food from angles that show its full size
 4. **Include Reference**: Adding a common object (like a fork) helps with size estimation
 5. **Fresh Photos**: Send recent photos rather than old ones from your gallery
+6. **Add Descriptions**: Use captions to describe what you're eating, especially for drinks, sauces, or unclear items
 
 ## Example Workflow
 
