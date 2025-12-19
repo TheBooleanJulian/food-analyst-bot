@@ -104,7 +104,7 @@ Sensitive user data is encrypted using AES-256-CBC:
 
 1. **Photo Handler**: Processes food images and generates nutritional analysis
 2. **Channel Post Handler**: Handles photos posted in configured channels
-3. **Reply Handler**: Detects user corrections to bot messages
+3. **Reply Handler**: Detects user corrections and removal commands to bot messages
 4. **Command Handlers**: Process user commands (/start, /help, /goals, etc.)
 
 ### Data Processing Functions
@@ -112,15 +112,17 @@ Sensitive user data is encrypted using AES-256-CBC:
 1. **analyzeFood()**: Sends image to Claude AI and parses response, with optional caption context
 2. **downloadImage()**: Retrieves and converts Telegram images to base64
 3. **parseUserCorrection()**: Interprets user correction messages
-4. **estimateNutrition()**: Calculates nutrition based on food type and serving size
+4. **handleRemovalCommand()**: Processes user removal requests for food entries
+5. **estimateNutrition()**: Calculates nutrition based on food type and serving size
 
 ### Storage Functions
 
 1. **saveUserInfo()**: Stores encrypted user information
 2. **addFoodEntry()**: Adds nutrition data to user's daily log
-3. **load/saveNutritionData()**: Manages nutrition data persistence
-4. **load/saveGoals()**: Manages user nutrition goals
-5. **saveMessageAssociation()**: Links messages to nutrition data for corrections
+3. **removeFoodEntryByIndex()**: Removes nutrition data by index from user's daily log
+4. **load/saveNutritionData()**: Manages nutrition data persistence
+5. **load/saveGoals()**: Manages user nutrition goals
+6. **saveMessageAssociation()**: Links messages to nutrition data for corrections
 
 ## Deployment
 

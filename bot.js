@@ -122,8 +122,30 @@ async function saveNutritionData(data) {
   await redisClient.set('nutrition_data', JSON.stringify(data));
 }
 
-// Load goals
-async function loadGoals() {
+// Remove a food entry by index
+async function removeFoodEntryByIndex(chatId, index) {
+  const data = await loadNutritionData();
+  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+  
+  if (!data[chatId] || !data[chatId][today]) {
+    return false;
+  }
+  
+  const entries = data[chatId][today];
+  
+  // Check if index is valid
+  if (index < 0 || index >= entries.length) {
+    return false;
+  }
+  
+  // Remove the entry at the specified index
+  const removedEntry = entries.splice(index, 1)[0];
+  
+  // Save the updated data
+  await saveNutritionData(data);
+  
+  return removedEntry;
+}
   try {
     const data = await redisClient.get('goals');
     return data ? JSON.parse(data) : {
@@ -459,6 +481,110 @@ async function processCorrection(msg) {
       '❌ Sorry, I couldn\'t process your correction. Please make sure your message follows the format:\n\n' +
       '"500ml coke" or "coffee 200ml"\n\n' +
       'I\'ll try to interpret the food item and serving size from your message.',
+      { reply_to_message_id: msg.message_id }
+    );
+  }
+}
+
+// Handle removal command when user replies to a bot message
+async function handleRemovalCommand(msg) {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+  const replyMessageId = msg.reply_to_message.message_id;
+  
+  // Save user info
+  await saveUserInfo(userId, {
+    firstName: msg.from.first_name,
+    lastName: msg.from.last_name,
+    username: msg.from.username,
+    fullName: msg.from.first_name + (msg.from.last_name ? ` ${msg.from.last_name}` : '')
+  });
+  
+  // Load message associations
+  const associations = await loadMessageAssociations();
+  
+  // Check if we have an association for this message
+  if (!associations[replyMessageId]) {
+    await bot.sendMessage(chatId, 
+      '❌ Could not find the original analysis to remove.',
+      { reply_to_message_id: msg.message_id }
+    );
+    return;
+  }
+  
+  const association = associations[replyMessageId];
+  
+  try {
+    // Load nutrition data
+    const data = await loadNutritionData();
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    
+    if (!data[association.chatId] || !data[association.chatId][today]) {
+      throw new Error('No nutrition data found for today');
+    }
+    
+    const entries = data[association.chatId][today];
+    
+    // Find the entry that matches the nutrition data
+    let entryIndex = -1;
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i];
+      if (entry.timestamp === association.nutritionData.timestamp &&
+          entry.food_name === association.nutritionData.food_name) {
+        entryIndex = i;
+        break;
+      }
+    }
+    
+    if (entryIndex === -1) {
+      throw new Error('Could not find matching entry');
+    }
+    
+    // Remove the entry
+    const removedEntry = entries.splice(entryIndex, 1)[0];
+    
+    // Save updated nutrition data
+    await saveNutritionData(data);
+    
+    // Remove the message association
+    delete associations[replyMessageId];
+    await saveMessageAssociations(associations);
+    
+    // Get updated totals
+    const totals = await getTodayTotals(chatId);
+    const goals = await loadGoals();
+    
+    // Send confirmation message
+    let response = `✅ Removed: ${removedEntry.food_name}\n\n`;
+    response += `📊 *Updated Nutrition Totals:*\n`;
+    response += `- Calories: ${totals.calories}/${goals.calories} kcal\n`;
+    response += `- Protein: ${totals.protein}/${goals.protein}g\n`;
+    response += `- Carbs: ${totals.carbs}/${goals.carbs}g\n`;
+    response += `- Fat: ${totals.fat}/${goals.fat}g`;
+    
+    await bot.sendMessage(chatId, response, { 
+      reply_to_message_id: msg.message_id,
+      parse_mode: 'Markdown'
+    });
+    
+    // Also edit the original message to indicate it was removed
+    try {
+      await bot.editMessageText(
+        `❌ *Entry Removed*\n\nThis food entry has been removed from your daily log.`,
+        {
+          chat_id: chatId,
+          message_id: replyMessageId,
+          parse_mode: 'Markdown'
+        }
+      );
+    } catch (editError) {
+      // Ignore edit errors - the confirmation message is sufficient
+      console.log('Could not edit original message, but removal was successful');
+    }
+  } catch (error) {
+    console.error('Error removing entry:', error);
+    await bot.sendMessage(chatId, 
+      '❌ Sorry, I couldn't remove that entry. Please try again later.',
       { reply_to_message_id: msg.message_id }
     );
   }
@@ -1022,6 +1148,79 @@ bot.onText(/\/feedback/, (msg) => {
   }, 5 * 60 * 1000); // 5 minutes
 });
 
+// Erase food entries command
+bot.onText(/\/erase(?:@\w+)?\s*(.*)/i, async (msg, match) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+  
+  // Allow both channel and direct messages
+  const isAuthorized = chatId.toString() === process.env.CHAT_ID || msg.chat.type === 'private';
+  if (!isAuthorized) return;
+  
+  try {
+    // Save user info
+    await saveUserInfo(userId, {
+      firstName: msg.from.first_name,
+      lastName: msg.from.last_name,
+      username: msg.from.username,
+      fullName: msg.from.first_name + (msg.from.last_name ? ` ${msg.from.last_name}` : '')
+    });
+    
+    const data = await loadNutritionData();
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    
+    // If no argument provided, show the list of today's entries
+    if (!match[1] || match[1].trim() === '') {
+      if (!data[chatId] || !data[chatId][today] || data[chatId][today].length === 0) {
+        await bot.sendMessage(chatId, '📭 No food entries recorded today.');
+        return;
+      }
+      
+      let response = `📝 *Today's Food Entries* (${today})\n\n`;
+      data[chatId][today].forEach((entry, index) => {
+        response += `${index + 1}. ${entry.food_name} - ${entry.calories} kcal\n`;
+      });
+      
+      response += '\nTo remove an entry, reply to this message with:\n`/erase [number]`\nOr reply to any food analysis with:\n`remove`, `delete`, or `erase`';
+      
+      await bot.sendMessage(chatId, response, { parse_mode: 'Markdown' });
+      return;
+    }
+    
+    // Parse the index from the command
+    const input = match[1].trim().toLowerCase();
+    const indexMatch = input.match(/^\d+$/);
+    
+    if (indexMatch) {
+      const index = parseInt(indexMatch[0], 10) - 1; // Convert to 0-based index
+      
+      const removedEntry = await removeFoodEntryByIndex(chatId, index);
+      
+      if (removedEntry) {
+        // Get updated totals
+        const totals = await getTodayTotals(chatId);
+        const goals = await loadGoals();
+        
+        let response = `✅ Removed: ${removedEntry.food_name}\n\n`;
+        response += `📊 *Updated Nutrition Totals:*\n`;
+        response += `- Calories: ${totals.calories}/${goals.calories} kcal\n`;
+        response += `- Protein: ${totals.protein}/${goals.protein}g\n`;
+        response += `- Carbs: ${totals.carbs}/${goals.carbs}g\n`;
+        response += `- Fat: ${totals.fat}/${goals.fat}g`;
+        
+        await bot.sendMessage(chatId, response, { parse_mode: 'Markdown' });
+      } else {
+        await bot.sendMessage(chatId, '❌ Invalid entry number. Please use `/erase` to see the current list.', { parse_mode: 'Markdown' });
+      }
+    } else {
+      await bot.sendMessage(chatId, '❌ Please specify a valid entry number. Use `/erase` to see the current list.', { parse_mode: 'Markdown' });
+    }
+  } catch (error) {
+    console.error('Error in erase command:', error);
+    await bot.sendMessage(chatId, '❌ Sorry, there was an error processing your request. Please try again later.');
+  }
+});
+
 // View recent users command (developer only)
 bot.onText(/\/users/, async (msg) => {
   // Only allow developer to use this command
@@ -1066,13 +1265,30 @@ bot.onText(/\/users/, async (msg) => {
   }
 });
 
-// Handle user replies to bot messages (for correcting analysis)
+// Handle user replies to bot messages (for correcting analysis or removing entries)
 bot.on('message', async (msg) => {
   // Check if this message is a reply to another message
   if (!msg.reply_to_message) return;
   
   // Check if the reply is to a bot message (from this bot)
   if (msg.reply_to_message.from.id.toString() !== bot.options.polling.id.toString()) return;
+  
+  // Check if the reply is a removal command
+  const removalKeywords = ['remove', 'delete', 'erase', 'cancel'];
+  const isRemovalCommand = removalKeywords.some(keyword => 
+    msg.text && msg.text.toLowerCase().includes(keyword)
+  );
+  
+  if (isRemovalCommand) {
+    // Handle removal command
+    try {
+      await handleRemovalCommand(msg);
+    } catch (error) {
+      console.error('Error processing removal command:', error);
+      // Don't send error message to avoid spamming the user
+    }
+    return;
+  }
   
   // Process the correction
   try {

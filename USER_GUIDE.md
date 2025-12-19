@@ -43,6 +43,7 @@ After sending a photo, the bot will respond with:
 - `/goals` - Set your daily nutrition goals
 - `/summary` - Get today's nutrition summary
 - `/progress` - Check your progress toward goals
+- `/erase` - List and remove food entries from today's log
 
 ### Feedback
 - `/feedback` - Send bug reports or suggestions to the developer
@@ -70,6 +71,24 @@ If the bot's analysis is incorrect, you can easily correct it:
 5. For example: "500ml coke" or "coffee 200ml"
 6. Send your correction
 7. The bot will update the analysis and your daily totals
+
+## Removing Food Entries
+
+If you accidentally logged a food item or want to remove an entry:
+
+### Method 1: Using the /erase command
+1. Send `/erase` to see a list of today's food entries
+2. Note the number of the entry you want to remove
+3. Send `/erase [number]` (e.g., `/erase 3`)
+
+### Method 2: Replying to analysis messages
+1. Find the bot's analysis message you want to remove
+2. Tap and hold on the message
+3. Select "Reply"
+4. Type "remove", "delete", or "erase"
+5. Send the message
+
+The bot will remove that entry from your daily log and update your nutrition totals accordingly.
 
 ## Daily Summaries
 
@@ -143,6 +162,11 @@ If you're experiencing issues not covered here:
    - Receive automatic daily summary at 11:59 PM
    - Review your nutrition intake
    - Adjust tomorrow's goals if needed
+
+5. **Making Corrections**:
+   - If you accidentally logged something, reply to the message with "remove" or "delete"
+   - Or use `/erase` to see a list and remove specific entries
+   - Check updated totals with `/progress`
 
 ## Frequently Asked Questions
 
