@@ -1049,7 +1049,7 @@ bot.onText(/\/progress/, async (msg) => {
   const carbProgress = Math.min(100, Math.round((totals.carbs / goals.carbs) * 100));
   const fatProgress = Math.min(100, Math.round((totals.fat / goals.fat) * 100));
   
-  const response = `📈 *Nutrition Progress*\n\n` +
+  let response = `📈 *Nutrition Progress*\n\n` +
     `- Calories: ${totals.calories}/${goals.calories} kcal (${calorieProgress}%)\n` +
     `- Protein: ${totals.protein}/${goals.protein}g (${proteinProgress}%)\n` +
     `- Carbs: ${totals.carbs}/${goals.carbs}g (${carbProgress}%)\n` +
