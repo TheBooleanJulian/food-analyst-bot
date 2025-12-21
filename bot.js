@@ -587,7 +587,7 @@ async function handleRemovalCommand(msg) {
   } catch (error) {
     console.error('Error removing entry:', error);
     await bot.sendMessage(chatId, 
-      '❌ Sorry, I couldn't remove that entry. Please try again later.',
+      '❌ Sorry, I couldn\'t remove that entry. Please try again later.',
       { reply_to_message_id: msg.message_id }
     );
   }
@@ -1317,22 +1317,22 @@ redisClient.on('connect', () => {
       } else {
         console.log('❌ Redis read/write test failed');
       }
+      
+      // Test encryption/decryption
+      const testData = 'This is a test string for encryption';
+      const encrypted = encrypt(testData);
+      const decrypted = decrypt(encrypted);
+      
+      if (testData === decrypted) {
+        console.log('✅ Encryption/decryption test passed');
+      } else {
+        console.log('❌ Encryption/decryption test failed');
+        console.log('Original:', testData);
+        console.log('Encrypted:', encrypted);
+        console.log('Decrypted:', decrypted);
+      }
     })
     .catch(err => {
       console.error('❌ Redis read/write test error:', err);
     });
-    
-  // Test encryption/decryption
-  const testData = 'This is a test string for encryption';
-  const encrypted = encrypt(testData);
-  const decrypted = decrypt(encrypted);
-  
-  if (testData === decrypted) {
-    console.log('✅ Encryption/decryption test passed');
-  } else {
-    console.log('❌ Encryption/decryption test failed');
-    console.log('Original:', testData);
-    console.log('Encrypted:', encrypted);
-    console.log('Decrypted:', decrypted);
-  }
 });
