@@ -951,6 +951,8 @@ bot.onText(/\/help/, (msg) => {
     '/summary - Get today\'s nutrition summary including fiber and hydration\n' +
     '/progress - Check your progress toward all nutrition goals\n' +
     '/erase - List and remove food entries\n\n' +
+    '🏆 *Leaderboard Commands:*\n' +
+    '/leaderboard or /top - View the nutrition leaderboard with masked names\n\n' +
     '📬 *Feedback Commands:*\n' +
     '/feedback - Send bug reports or suggestions to the developer\n\n' +
     'ℹ️ *Usage Tips:*\n' +
@@ -1298,6 +1300,69 @@ bot.onText(/\/users/, async (msg) => {
   } catch (error) {
     console.error('Error fetching users:', error);
     await bot.sendMessage(DEVELOPER_CHAT_ID, '❌ Error fetching user list.');
+  }
+});
+
+// Leaderboard command
+bot.onText(/\/leaderboard|\/top/i, async (msg) => {
+  const chatId = msg.chat.id;
+  // Allow both channel and direct messages
+  const isAuthorized = chatId.toString() === process.env.CHAT_ID || msg.chat.type === 'private';
+  if (!isAuthorized) return;
+  
+  try {
+    await bot.sendMessage(chatId, '📊 Calculating leaderboard...');
+    
+    // Try to get cached leaderboard first
+    let leaderboard = await loadLeaderboardCache();
+    
+    if (!leaderboard) {
+      // Generate fresh leaderboard
+      leaderboard = await getLeaderboardData();
+      
+      // Save to cache
+      await saveLeaderboardCache(leaderboard);
+    }
+    
+    if (leaderboard.length === 0) {
+      await bot.sendMessage(chatId, '📭 No users have recorded nutrition data today.');
+      return;
+    }
+    
+    // Format leaderboard
+    let leaderboardText = `🏆 *Nutrition Leaderboard*
+
+`;
+    
+    for (let i = 0; i < Math.min(10, leaderboard.length); i++) {
+      const user = leaderboard[i];
+      const position = i + 1;
+      const medal = position === 1 ? '🥇' : position === 2 ? '🥈' : position === 3 ? '🥉' : '  ';
+      
+      leaderboardText += `${medal} ${position}. ${user.displayName}: ${user.score}
+`;
+      
+      // Add breakdown for top 3
+      if (position <= 3) {
+        const calPercent = Math.round(user.percentages.calories * 100);
+        const protPercent = Math.round(user.percentages.protein * 100);
+        const carbPercent = Math.round(user.percentages.carbs * 100);
+        const fatPercent = Math.round(user.percentages.fat * 100);
+        const fibPercent = Math.round(user.percentages.fiber * 100);
+        const hydPercent = Math.round(user.percentages.hydration * 100);
+        
+        leaderboardText += `   └─ C:${calPercent}% P:${protPercent}% C:${carbPercent}% F:${fatPercent}% Fi:${fibPercent}% H:${hydPercent}%
+`;
+      }
+    }
+    
+    // Add info about scoring
+    leaderboardText += '\n💡 *Scoring:* 1000 = perfect (all goals at 100%), lower scores = more deviation from goals';
+    
+    await bot.sendMessage(chatId, leaderboardText, { parse_mode: 'Markdown' });
+  } catch (error) {
+    console.error('Error generating leaderboard:', error);
+    await bot.sendMessage(chatId, '❌ Error generating leaderboard. Please try again later.');
   }
 });
 
@@ -1731,3 +1796,154 @@ Return ONLY the JSON object with no additional text.`;
     );
   }
 }
+
+// Calculate leaderboard score based on % deviation from goals
+async function calculateLeaderboardScore(chatId) {
+  try {
+    const totals = await getTodayTotals(chatId);
+    const goals = await loadGoals();
+    
+    // Calculate percentage for each category
+    const percentages = {
+      calories: totals.calories / goals.calories,
+      protein: totals.protein / goals.protein,
+      carbs: totals.carbs / goals.carbs,
+      fat: totals.fat / goals.fat,
+      fiber: totals.fiber / goals.fiber,
+      hydration: totals.hydration / goals.hydration
+    };
+    
+    // Calculate absolute deviations from 100% (1.0)
+    const deviations = {
+      calories: Math.abs(percentages.calories - 1),
+      protein: Math.abs(percentages.protein - 1),
+      carbs: Math.abs(percentages.carbs - 1),
+      fat: Math.abs(percentages.fat - 1),
+      fiber: Math.abs(percentages.fiber - 1),
+      hydration: Math.abs(percentages.hydration - 1)
+    };
+    
+    // Calculate average deviation
+    const avgDeviation = (
+      deviations.calories + 
+      deviations.protein + 
+      deviations.carbs + 
+      deviations.fat + 
+      deviations.fiber + 
+      deviations.hydration
+    ) / 6;
+    
+    // Convert to score (1000 - deviation * 1000)
+    // This gives 1000 for perfect score (0 deviation) and decreases as deviation increases
+    const score = Math.max(0, Math.round(1000 - (avgDeviation * 1000)));
+    
+    return {
+      score,
+      percentages,
+      deviations,
+      totals,
+      goals
+    };
+  } catch (error) {
+    console.error('Error calculating leaderboard score:', error);
+    return null;
+  }
+}
+
+// Mask user name for privacy
+function maskUserName(fullName) {
+  if (!fullName || fullName.length <= 3) {
+    return fullName || 'Anonymous';
+  }
+  
+  const firstChar = fullName.charAt(0);
+  const lastChar = fullName.charAt(fullName.length - 1);
+  const middleLength = Math.max(1, fullName.length - 2);
+  const maskedMiddle = '*'.repeat(middleLength);
+  
+  return `${firstChar}${maskedMiddle}${lastChar}`;
+}
+
+// Get all users for leaderboard calculation
+async function getAllUsers() {
+  try {
+    const users = await redisClient.get('users');
+    return users ? JSON.parse(users) : {};
+  } catch (error) {
+    console.error('Error getting all users:', error);
+    return {};
+  }
+}
+
+// Get leaderboard data
+async function getLeaderboardData() {
+  try {
+    const users = await getAllUsers();
+    const leaderboard = [];
+    
+    for (const [userId, userData] of Object.entries(users)) {
+      const scoreData = await calculateLeaderboardScore(parseInt(userId));
+      if (scoreData && scoreData.score !== null) {
+        leaderboard.push({
+          userId: parseInt(userId),
+          displayName: maskUserName(userData.name),
+          score: scoreData.score,
+          percentages: scoreData.percentages,
+          deviations: scoreData.deviations,
+          totals: scoreData.totals,
+          goals: scoreData.goals
+        });
+      }
+    }
+    
+    // Sort by score descending
+    leaderboard.sort((a, b) => b.score - a.score);
+    
+    return leaderboard;
+  } catch (error) {
+    console.error('Error getting leaderboard data:', error);
+    return [];
+  }
+}
+
+// Load cached leaderboard
+async function loadLeaderboardCache() {
+  try {
+    const cached = await redisClient.get('leaderboard_cache');
+    return cached ? JSON.parse(cached) : null;
+  } catch (error) {
+    console.error('Error loading leaderboard cache:', error);
+    return null;
+  }
+}
+
+// Save leaderboard cache
+async function saveLeaderboardCache(leaderboard) {
+  try {
+    await redisClient.setex('leaderboard_cache', 300, JSON.stringify(leaderboard)); // Cache for 5 minutes
+  } catch (error) {
+    console.error('Error saving leaderboard cache:', error);
+  }
+}
+
+// Clear leaderboard cache
+async function clearLeaderboardCache() {
+  try {
+    await redisClient.del('leaderboard_cache');
+  } catch (error) {
+    console.error('Error clearing leaderboard cache:', error);
+  }
+}
+
+// Periodically update leaderboard (twice daily at 12 AM and 12 PM)
+cron.schedule('0 0,12 * * *', async () => {
+  try {
+    const leaderboard = await getLeaderboardData();
+    await saveLeaderboardCache(leaderboard);
+    console.log('Leaderboard cache updated at', new Date().toISOString());
+  } catch (error) {
+    console.error('Error updating leaderboard cache:', error);
+  }
+});
+
+
