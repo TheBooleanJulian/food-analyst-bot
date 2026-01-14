@@ -965,110 +965,70 @@ bot.onText(/\/help/, (msg) => {
   bot.sendMessage(chatId, helpMessage, { parse_mode: 'Markdown' });
 });
 
-// Set nutrition goals
+// Set nutrition goals - Enhanced with manual vs AI-guided choice
 bot.onText(/\/goals/, async (msg) => {
   const chatId = msg.chat.id;
   // Allow both channel and direct messages
   const isAuthorized = chatId.toString() === process.env.CHAT_ID || msg.chat.type === 'private';
   if (!isAuthorized) return;
   
-  bot.sendMessage(
-    chatId,
-    'Please enter your daily nutrition goals in this format:\n' +
-    'calories protein carbs fat fiber hydration\n\n' +
-    'Example: 2000 150 250 70 25 2000\n\n' +
-    'Or type /cancel to cancel.'
-  );
+  // Present choice between manual and AI-guided
+  const choiceMessage = '🎯 *Set Nutrition Goals*\n\n' +
+    'Choose how you\'d like to set your daily nutrition goals:\n\n' +
+    '1️⃣ *Manual Entry*\n' +
+    'Enter your own target values for all 6 nutrients\n\n' +
+    '2️⃣ *AI-Guided*\n' +
+    'Answer a few questions and let Claude AI calculate personalized recommendations\n\n' +
+    'Please reply with:\n' +
+    '`manual` - for manual entry\n' +
+    '`ai` - for AI-guided recommendations\n' +
+    '`/cancel` - to cancel';
   
-  // Set up listener for goal input
-  const goalListener = bot.on('message', async (responseMsg) => {
+  await bot.sendMessage(chatId, choiceMessage, { parse_mode: 'Markdown' });
+  
+  // Set up listener for choice selection
+  const choiceListener = bot.on('message', async (responseMsg) => {
     // Ensure we only process messages from the same chat
     if (responseMsg.chat.id !== chatId) return;
     
     // Remove the listener immediately to prevent stacking
     try {
-      bot.removeTextListener(goalListener);
-      bot.removeListener(goalListener);
+      bot.removeTextListener(choiceListener);
+      bot.removeListener(choiceListener);
     } catch (e) {
       // Ignore errors if listener is already removed
     }
     
+    const choice = responseMsg.text?.toLowerCase().trim();
+    
     // Handle cancellation
-    if (responseMsg.text === '/cancel') {
-      bot.sendMessage(chatId, 'Goal setting cancelled.');
+    if (choice === '/cancel') {
+      await bot.sendMessage(chatId, 'Goal setting cancelled.');
       return;
     }
     
-    const parts = responseMsg.text.split(' ').map(p => parseInt(p)).filter(p => !isNaN(p));
-    
-    if (parts.length === 6) {
-      const goals = {
-        calories: parts[0],
-        protein: parts[1],
-        carbs: parts[2],
-        fat: parts[3],
-        fiber: parts[4],
-        hydration: parts[5]
-      };
-      
-      await saveGoals(goals);
-      
-      bot.sendMessage(
-        chatId,
-        `✅ Nutrition goals updated!\n\n` +
-        `🎯 Daily Goals:\n` +
-        `- Calories: ${goals.calories} kcal\n` +
-        `- Protein: ${goals.protein}g\n` +
-        `- Carbs: ${goals.carbs}g\n` +
-        `- Fat: ${goals.fat}g\n` +
-        `- Fiber: ${goals.fiber}g\n` +
-        `- Hydration: ${goals.hydration}ml`
-      );
-    } else if (parts.length === 4) {
-      // Support legacy format with just 4 parameters
-      const goals = {
-        calories: parts[0],
-        protein: parts[1],
-        carbs: parts[2],
-        fat: parts[3],
-        fiber: 25, // Default fiber goal
-        hydration: 2000 // Default hydration goal
-      };
-      
-      await saveGoals(goals);
-      
-      bot.sendMessage(
-        chatId,
-        `✅ Nutrition goals updated! (Using default fiber and hydration goals)\n\n` +
-        `🎯 Daily Goals:\n` +
-        `- Calories: ${goals.calories} kcal\n` +
-        `- Protein: ${goals.protein}g\n` +
-        `- Carbs: ${goals.carbs}g\n` +
-        `- Fat: ${goals.fat}g\n` +
-        `- Fiber: ${goals.fiber}g (default)\n` +
-        `- Hydration: ${goals.hydration}ml (default)`
-      );
+    if (choice === 'manual') {
+      await handleManualGoals(chatId);
+    } else if (choice === 'ai') {
+      await handleAIGuidedGoals(chatId);
     } else {
-      bot.sendMessage(
+      await bot.sendMessage(
         chatId,
-        '❌ Invalid format. Please enter goals as either 4 or 6 numbers:\n\n' +
-        '4 numbers (legacy): calories protein carbs fat\n' +
-        'Example: 2000 150 250 70\n\n' +
-        '6 numbers (recommended): calories protein carbs fat fiber hydration\n' +
-        'Example: 2000 150 250 70 25 2000'
+        '❌ Invalid choice. Please reply with `manual` or `ai`, or `/cancel` to cancel.',
+        { parse_mode: 'Markdown' }
       );
     }
   });
   
-  // Auto-remove listener after 5 minutes to prevent stacking
+  // Auto-remove listener after 5 minutes
   setTimeout(() => {
     try {
-      bot.removeTextListener(goalListener);
-      bot.removeListener(goalListener);
+      bot.removeTextListener(choiceListener);
+      bot.removeListener(choiceListener);
     } catch (e) {
-      // Ignore errors if listener is already removed
+      // Ignore errors
     }
-  }, 5 * 60 * 1000); // 5 minutes
+  }, 5 * 60 * 1000);
 });
 
 // Get daily summary
@@ -1404,3 +1364,365 @@ redisClient.on('connect', () => {
       console.error('❌ Redis read/write test error:', err);
     });
 });
+
+// Helper function for manual goals entry
+async function handleManualGoals(chatId) {
+  await bot.sendMessage(
+    chatId,
+    '🔢 *Manual Goal Entry*\n\n' +
+    'Please enter your daily nutrition goals in this format (comma separated):\n' +
+    '`calories, protein, carbs, fat, fiber, hydration`\n\n' +
+    'Example: `2000, 150, 250, 70, 25, 2000`\n\n' +
+    'Or type `/cancel` to cancel.'
+  );
+  
+  // Set up listener for manual goal input
+  const manualGoalListener = bot.on('message', async (responseMsg) => {
+    // Ensure we only process messages from the same chat
+    if (responseMsg.chat.id !== chatId) return;
+    
+    // Remove the listener immediately to prevent stacking
+    try {
+      bot.removeTextListener(manualGoalListener);
+      bot.removeListener(manualGoalListener);
+    } catch (e) {
+      // Ignore errors
+    }
+    
+    // Handle cancellation
+    if (responseMsg.text === '/cancel') {
+      await bot.sendMessage(chatId, 'Manual goal entry cancelled.');
+      return;
+    }
+    
+    // Parse comma-separated values
+    const parts = responseMsg.text.split(',').map(p => parseInt(p.trim())).filter(p => !isNaN(p));
+    
+    if (parts.length === 6) {
+      const goals = {
+        calories: parts[0],
+        protein: parts[1],
+        carbs: parts[2],
+        fat: parts[3],
+        fiber: parts[4],
+        hydration: parts[5]
+      };
+      
+      await saveGoals(goals);
+      
+      await bot.sendMessage(
+        chatId,
+        `✅ Nutrition goals updated!\n\n` +
+        `🎯 Daily Goals:\n` +
+        `- Calories: ${goals.calories} kcal\n` +
+        `- Protein: ${goals.protein}g\n` +
+        `- Carbs: ${goals.carbs}g\n` +
+        `- Fat: ${goals.fat}g\n` +
+        `- Fiber: ${goals.fiber}g\n` +
+        `- Hydration: ${goals.hydration}ml`
+      );
+    } else {
+      await bot.sendMessage(
+        chatId,
+        '❌ Invalid format. Please enter exactly 6 numbers separated by commas:\n' +
+        '`calories, protein, carbs, fat, fiber, hydration`\n\n' +
+        'Example: `2000, 150, 250, 70, 25, 2000`'
+      );
+    }
+  });
+  
+  // Auto-remove listener after 5 minutes
+  setTimeout(() => {
+    try {
+      bot.removeTextListener(manualGoalListener);
+      bot.removeListener(manualGoalListener);
+    } catch (e) {
+      // Ignore errors
+    }
+  }, 5 * 60 * 1000);
+}
+
+// Helper function for AI-guided goals
+async function handleAIGuidedGoals(chatId) {
+  // Initialize user data collection
+  const userData = {};
+  
+  // Question 1: Age
+  await bot.sendMessage(chatId, '🤖 *AI-Guided Nutrition Goals*\n\nLet\'s collect some information to calculate personalized recommendations.\n\n❓ What is your age? (in years)');
+  
+  const ageListener = bot.on('message', async (responseMsg) => {
+    if (responseMsg.chat.id !== chatId) return;
+    
+    try {
+      bot.removeTextListener(ageListener);
+      bot.removeListener(ageListener);
+    } catch (e) {}
+    
+    if (responseMsg.text === '/cancel') {
+      await bot.sendMessage(chatId, 'AI-guided goal setup cancelled.');
+      return;
+    }
+    
+    const age = parseInt(responseMsg.text);
+    if (isNaN(age) || age < 13 || age > 120) {
+      await bot.sendMessage(chatId, '❌ Please enter a valid age between 13 and 120.');
+      return;
+    }
+    
+    userData.age = age;
+    
+    // Question 2: Height
+    await bot.sendMessage(chatId, '📏 What is your height?\n\nPlease specify in centimeters (cm) or feet and inches.\nExample: `175` or `5\'10"`');
+    
+    const heightListener = bot.on('message', async (heightResponse) => {
+      if (heightResponse.chat.id !== chatId) return;
+      
+      try {
+        bot.removeTextListener(heightListener);
+        bot.removeListener(heightListener);
+      } catch (e) {}
+      
+      if (heightResponse.text === '/cancel') {
+        await bot.sendMessage(chatId, 'AI-guided goal setup cancelled.');
+        return;
+      }
+      
+      userData.height = heightResponse.text.trim();
+      
+      // Question 3: Weight
+      await bot.sendMessage(chatId, '⚖️ What is your current weight?\n\nPlease specify in kilograms (kg) or pounds (lbs).\nExample: `70` or `154 lbs`');
+      
+      const weightListener = bot.on('message', async (weightResponse) => {
+        if (weightResponse.chat.id !== chatId) return;
+        
+        try {
+          bot.removeTextListener(weightListener);
+          bot.removeListener(weightListener);
+        } catch (e) {}
+        
+        if (weightResponse.text === '/cancel') {
+          await bot.sendMessage(chatId, 'AI-guided goal setup cancelled.');
+          return;
+        }
+        
+        userData.weight = weightResponse.text.trim();
+        
+        // Question 4: Ethnicity
+        await bot.sendMessage(chatId, '🌍 What is your ethnicity?\n\nThis helps provide culturally appropriate recommendations.\nExample: `Asian`, `Caucasian`, `African`, `Hispanic`, etc.');
+        
+        const ethnicityListener = bot.on('message', async (ethnicityResponse) => {
+          if (ethnicityResponse.chat.id !== chatId) return;
+          
+          try {
+            bot.removeTextListener(ethnicityListener);
+            bot.removeListener(ethnicityListener);
+          } catch (e) {}
+          
+          if (ethnicityResponse.text === '/cancel') {
+            await bot.sendMessage(chatId, 'AI-guided goal setup cancelled.');
+            return;
+          }
+          
+          userData.ethnicity = ethnicityResponse.text.trim();
+          
+          // Question 5: Weight goals
+          await bot.sendMessage(chatId, '🎯 What are your weight goals?\n\nPlease choose one:\n`lose` - Lose weight\n`maintain` - Maintain current weight\n`gain` - Gain weight');
+          
+          const goalListener = bot.on('message', async (goalResponse) => {
+            if (goalResponse.chat.id !== chatId) return;
+            
+            try {
+              bot.removeTextListener(goalListener);
+              bot.removeListener(goalListener);
+            } catch (e) {}
+            
+            if (goalResponse.text === '/cancel') {
+              await bot.sendMessage(chatId, 'AI-guided goal setup cancelled.');
+              return;
+            }
+            
+            const goal = goalResponse.text.toLowerCase().trim();
+            if (!['lose', 'maintain', 'gain'].includes(goal)) {
+              await bot.sendMessage(chatId, '❌ Please choose `lose`, `maintain`, or `gain`.');
+              return;
+            }
+            
+            userData.goal = goal;
+            
+            // Question 6: Activity level
+            await bot.sendMessage(chatId, '🏃 What is your activity level?\n\nPlease choose one:\n`sedentary` - Little to no exercise\n`light` - Light exercise 1-3 days/week\n`moderate` - Moderate exercise 3-5 days/week\n`active` - Hard exercise 6-7 days/week\n`very active` - Very hard exercise, physical job');
+            
+            const activityListener = bot.on('message', async (activityResponse) => {
+              if (activityResponse.chat.id !== chatId) return;
+              
+              try {
+                bot.removeTextListener(activityListener);
+                bot.removeListener(activityListener);
+              } catch (e) {}
+              
+              if (activityResponse.text === '/cancel') {
+                await bot.sendMessage(chatId, 'AI-guided goal setup cancelled.');
+                return;
+              }
+              
+              const activity = activityResponse.text.toLowerCase().trim();
+              const validActivities = ['sedentary', 'light', 'moderate', 'active', 'very active'];
+              if (!validActivities.includes(activity)) {
+                await bot.sendMessage(chatId, '❌ Please choose from the listed activity levels.');
+                return;
+              }
+              
+              userData.activity = activity;
+              
+              // Process with Claude AI
+              await processAIGoals(chatId, userData);
+              
+            });
+            
+            // Auto-remove activity listener
+            setTimeout(() => {
+              try {
+                bot.removeTextListener(activityListener);
+                bot.removeListener(activityListener);
+              } catch (e) {}
+            }, 10 * 60 * 1000); // 10 minutes for full questionnaire
+            
+          });
+          
+          // Auto-remove goal listener
+          setTimeout(() => {
+            try {
+              bot.removeTextListener(goalListener);
+              bot.removeListener(goalListener);
+            } catch (e) {}
+          }, 5 * 60 * 1000);
+          
+        });
+        
+        // Auto-remove ethnicity listener
+        setTimeout(() => {
+          try {
+            bot.removeTextListener(ethnicityListener);
+            bot.removeListener(ethnicityListener);
+          } catch (e) {}
+        }, 5 * 60 * 1000);
+        
+      });
+      
+      // Auto-remove weight listener
+      setTimeout(() => {
+        try {
+          bot.removeTextListener(weightListener);
+          bot.removeListener(weightListener);
+        } catch (e) {}
+      }, 5 * 60 * 1000);
+      
+    });
+    
+    // Auto-remove height listener
+    setTimeout(() => {
+      try {
+        bot.removeTextListener(heightListener);
+        bot.removeListener(heightListener);
+      } catch (e) {}
+    }, 5 * 60 * 1000);
+    
+  });
+  
+  // Auto-remove age listener
+  setTimeout(() => {
+    try {
+      bot.removeTextListener(ageListener);
+      bot.removeListener(ageListener);
+    } catch (e) {}
+  }, 5 * 60 * 1000);
+}
+
+async function processAIGoals(chatId, userData) {
+  await bot.sendMessage(chatId, '🧠 Calculating personalized nutrition goals with Claude AI...');
+  
+  // Build the prompt with user data
+  const promptText = `Based on the following user information, calculate personalized daily nutrition goals.
+
+User Profile:
+- Age: ${userData.age} years
+- Height: ${userData.height}
+- Weight: ${userData.weight}
+- Ethnicity: ${userData.ethnicity}
+- Goal: ${userData.goal} weight
+- Activity Level: ${userData.activity}
+
+Please provide daily nutrition goals in this exact JSON format:
+{
+  "calories": number,
+  "protein": number,
+  "carbs": number,
+  "fat": number,
+  "fiber": number,
+  "hydration": number
+}
+
+Consider:
+- Basal metabolic rate (BMR) calculations
+- Activity level multipliers
+- Weight loss/maintenance/gain adjustments
+- Ethnicity-appropriate dietary patterns
+- Adequate fiber intake (25-35g daily)
+- Proper hydration (2000-3000ml daily)
+
+Return ONLY the JSON object with no additional text.`;
+
+  const message = await anthropic.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 1024,
+    messages: [{
+      role: 'user',
+      content: [
+        {
+          type: 'text',
+          text: promptText
+        }
+      ]
+    }]
+  });
+
+  const responseText = message.content[0].text.trim();
+  // Remove markdown code blocks if present
+  const jsonText = responseText.replace(/```json\n?|\n?```/g, '').trim();
+  
+  try {
+    const goals = JSON.parse(jsonText);
+    
+    await saveGoals(goals);
+    
+    await bot.sendMessage(
+      chatId,
+      `✅ AI-calculated nutrition goals updated!
+
+` +
+      `🎯 Personalized Daily Goals:
+` +
+      `- Calories: ${goals.calories} kcal
+` +
+      `- Protein: ${goals.protein}g
+` +
+      `- Carbs: ${goals.carbs}g
+` +
+      `- Fat: ${goals.fat}g
+` +
+      `- Fiber: ${goals.fiber}g
+` +
+      `- Hydration: ${goals.hydration}ml
+
+` +
+      `_Calculated based on your profile and goals_`
+    );
+  } catch (error) {
+    console.error('Error parsing AI response:', error);
+    console.error('Raw response:', responseText);
+    await bot.sendMessage(
+      chatId,
+      `❌ Sorry, there was an error processing the AI recommendations. Please try the manual entry option instead.`
+    );
+  }
+}
