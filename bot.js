@@ -155,14 +155,18 @@ async function loadGoals() {
       calories: 2000,
       protein: 150,
       carbs: 250,
-      fat: 70
+      fat: 70,
+      fiber: 25,
+      hydration: 2000
     };
   } catch {
     return {
       calories: 2000,
       protein: 150,
       carbs: 250,
-      fat: 70
+      fat: 70,
+      fiber: 25,
+      hydration: 2000
     };
   }
 }
@@ -621,16 +625,18 @@ async function getTodayTotals(chatId) {
   const today = new Date().toISOString().split('T')[0];
   
   if (!data[chatId] || !data[chatId][today]) {
-    return { calories: 0, protein: 0, carbs: 0, fat: 0 };
+    return { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, hydration: 0 };
   }
   
-  const totals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+  const totals = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, hydration: 0 };
   
   data[chatId][today].forEach(entry => {
     totals.calories += entry.calories;
     totals.protein += entry.protein;
     totals.carbs += entry.carbs;
     totals.fat += entry.fat;
+    totals.fiber += entry.fiber || 0;
+    totals.hydration += entry.hydration || 0;
   });
   
   return totals;
@@ -659,19 +665,25 @@ async function getDailySummary(chatId) {
   summary += `- Calories: ${totals.calories}/${goals.calories} kcal\n`;
   summary += `- Protein: ${totals.protein}/${goals.protein}g\n`;
   summary += `- Carbs: ${totals.carbs}/${goals.carbs}g\n`;
-  summary += `- Fat: ${totals.fat}/${goals.fat}g\n\n`;
+  summary += `- Fat: ${totals.fat}/${goals.fat}g\n`;
+  summary += `- Fiber: ${totals.fiber}/${goals.fiber}g\n`;
+  summary += `- Hydration: ${totals.hydration}/${goals.hydration}ml\n\n`;
   
   // Progress indicators
   const calorieProgress = Math.round((totals.calories / goals.calories) * 100);
   const proteinProgress = Math.round((totals.protein / goals.protein) * 100);
   const carbProgress = Math.round((totals.carbs / goals.carbs) * 100);
   const fatProgress = Math.round((totals.fat / goals.fat) * 100);
+  const fiberProgress = Math.round((totals.fiber / goals.fiber) * 100);
+  const hydrationProgress = Math.round((totals.hydration / goals.hydration) * 100);
   
   summary += `📈 *Progress:*\n`;
   summary += `- Calories: ${calorieProgress}%\n`;
   summary += `- Protein: ${proteinProgress}%\n`;
   summary += `- Carbs: ${carbProgress}%\n`;
   summary += `- Fat: ${fatProgress}%\n`;
+  summary += `- Fiber: ${fiberProgress}%\n`;
+  summary += `- Hydration: ${hydrationProgress}%\n`;
   
   return summary;
 }
@@ -730,11 +742,13 @@ Return ONLY a JSON object with this exact format (no markdown, no explanation):
   "protein": number,
   "carbs": number,
   "fat": number,
+  "fiber": number,
+  "hydration": number,
   "serving_size": "description",
   "confidence": "high/medium/low"
 }
 
-Base estimates on typical serving sizes. Be specific about the food identified.`;
+Base estimates on typical serving sizes. Be specific about the food identified. For hydration, estimate water content in ml. For fiber, estimate dietary fiber content in grams.`;
   
   // If user provided a caption, include it as additional context
   if (caption) {
@@ -806,6 +820,8 @@ bot.on('photo', async (msg) => {
 - Protein: ${nutrition.protein}g
 - Carbs: ${nutrition.carbs}g
 - Fat: ${nutrition.fat}g
+- Fiber: ${nutrition.fiber || 0}g
+- Hydration: ${nutrition.hydration || 0}ml
 
 📏 Serving: ${nutrition.serving_size}
 🎯 Confidence: ${nutrition.confidence}
@@ -815,6 +831,8 @@ bot.on('photo', async (msg) => {
 - Protein: ${totals.protein}/${goals.protein}g
 - Carbs: ${totals.carbs}/${goals.carbs}g
 - Fat: ${totals.fat}/${goals.fat}g
+- Fiber: ${totals.fiber}/${goals.fiber}g
+- Hydration: ${totals.hydration}/${goals.hydration}ml
 
 _Note: These are estimates based on visual analysis._
 Powered by _Claude AI 🤖_`;
@@ -870,6 +888,8 @@ bot.on('channel_post', async (msg) => {
 - Protein: ${nutrition.protein}g
 - Carbs: ${nutrition.carbs}g
 - Fat: ${nutrition.fat}g
+- Fiber: ${nutrition.fiber || 0}g
+- Hydration: ${nutrition.hydration || 0}ml
 
 📏 Serving: ${nutrition.serving_size}
 🎯 Confidence: ${nutrition.confidence}
@@ -879,6 +899,8 @@ bot.on('channel_post', async (msg) => {
 - Protein: ${totals.protein}/${goals.protein}g
 - Carbs: ${totals.carbs}/${goals.carbs}g
 - Fat: ${totals.fat}/${goals.fat}g
+- Fiber: ${totals.fiber}/${goals.fiber}g
+- Hydration: ${totals.hydration}/${goals.hydration}ml
 
 _Note: These are estimates based on visual analysis._`;
 
@@ -923,18 +945,18 @@ bot.onText(/\/help/, (msg) => {
   
   const helpMessage = '🤖 *Food Analyst Bot Commands*\n\n' +
     '📸 *Food Analysis:*\n' +
-    'Simply send a photo of your food to get nutritional information\n\n' +
+    'Simply send a photo of your food to get nutritional information including fiber and hydration content\n\n' +
     '📋 *Tracking Commands:*\n' +
-    '/goals - Set your daily nutrition goals\n' +
-    '/summary - Get today\'s nutrition summary\n' +
-    '/progress - Check your progress toward goals\n' +
+    '/goals - Set your daily nutrition goals (calories, protein, carbs, fat, fiber, hydration)\n' +
+    '/summary - Get today\'s nutrition summary including fiber and hydration\n' +
+    '/progress - Check your progress toward all nutrition goals\n' +
     '/erase - List and remove food entries\n\n' +
     '📬 *Feedback Commands:*\n' +
     '/feedback - Send bug reports or suggestions to the developer\n\n' +
     'ℹ️ *Usage Tips:*\n' +
     '- Works in both direct messages and channel posts\n' +
-    '- Goals are set in format: calories protein carbs fat\n' +
-    '- Example: /goals 2000 150 250 70\n\n' +
+    '- Goals are set in format: calories protein carbs fat fiber hydration\n' +
+    '- Example: /goals 2000 150 250 70 25 2000\n\n' +
     '💬 *For Developers:*\n' +
     '- User names in feedback are clickable links\n' +
     '- Use /users to see recent user interactions\n\n' +
@@ -953,8 +975,8 @@ bot.onText(/\/goals/, async (msg) => {
   bot.sendMessage(
     chatId,
     'Please enter your daily nutrition goals in this format:\n' +
-    'calories protein carbs fat\n\n' +
-    'Example: 2000 150 250 70\n\n' +
+    'calories protein carbs fat fiber hydration\n\n' +
+    'Example: 2000 150 250 70 25 2000\n\n' +
     'Or type /cancel to cancel.'
   );
   
@@ -979,12 +1001,14 @@ bot.onText(/\/goals/, async (msg) => {
     
     const parts = responseMsg.text.split(' ').map(p => parseInt(p)).filter(p => !isNaN(p));
     
-    if (parts.length === 4) {
+    if (parts.length === 6) {
       const goals = {
         calories: parts[0],
         protein: parts[1],
         carbs: parts[2],
-        fat: parts[3]
+        fat: parts[3],
+        fiber: parts[4],
+        hydration: parts[5]
       };
       
       await saveGoals(goals);
@@ -996,13 +1020,42 @@ bot.onText(/\/goals/, async (msg) => {
         `- Calories: ${goals.calories} kcal\n` +
         `- Protein: ${goals.protein}g\n` +
         `- Carbs: ${goals.carbs}g\n` +
-        `- Fat: ${goals.fat}g`
+        `- Fat: ${goals.fat}g\n` +
+        `- Fiber: ${goals.fiber}g\n` +
+        `- Hydration: ${goals.hydration}ml`
+      );
+    } else if (parts.length === 4) {
+      // Support legacy format with just 4 parameters
+      const goals = {
+        calories: parts[0],
+        protein: parts[1],
+        carbs: parts[2],
+        fat: parts[3],
+        fiber: 25, // Default fiber goal
+        hydration: 2000 // Default hydration goal
+      };
+      
+      await saveGoals(goals);
+      
+      bot.sendMessage(
+        chatId,
+        `✅ Nutrition goals updated! (Using default fiber and hydration goals)\n\n` +
+        `🎯 Daily Goals:\n` +
+        `- Calories: ${goals.calories} kcal\n` +
+        `- Protein: ${goals.protein}g\n` +
+        `- Carbs: ${goals.carbs}g\n` +
+        `- Fat: ${goals.fat}g\n` +
+        `- Fiber: ${goals.fiber}g (default)\n` +
+        `- Hydration: ${goals.hydration}ml (default)`
       );
     } else {
       bot.sendMessage(
         chatId,
-        '❌ Invalid format. Please enter goals as four numbers: calories protein carbs fat\n\n' +
-        'Example: 2000 150 250 70'
+        '❌ Invalid format. Please enter goals as either 4 or 6 numbers:\n\n' +
+        '4 numbers (legacy): calories protein carbs fat\n' +
+        'Example: 2000 150 250 70\n\n' +
+        '6 numbers (recommended): calories protein carbs fat fiber hydration\n' +
+        'Example: 2000 150 250 70 25 2000'
       );
     }
   });
@@ -1048,12 +1101,25 @@ bot.onText(/\/progress/, async (msg) => {
   const proteinProgress = Math.round((totals.protein / goals.protein) * 100);
   const carbProgress = Math.round((totals.carbs / goals.carbs) * 100);
   const fatProgress = Math.round((totals.fat / goals.fat) * 100);
+  const fiberProgress = Math.round((totals.fiber / goals.fiber) * 100);
+  const hydrationProgress = Math.round((totals.hydration / goals.hydration) * 100);
   
-  let response = `📈 *Nutrition Progress*\n\n` +
-    `- Calories: ${totals.calories}/${goals.calories} kcal (${calorieProgress}%)\n` +
-    `- Protein: ${totals.protein}/${goals.protein}g (${proteinProgress}%)\n` +
-    `- Carbs: ${totals.carbs}/${goals.carbs}g (${carbProgress}%)\n` +
-    `- Fat: ${totals.fat}/${goals.fat}g (${fatProgress}%)\n\n`;
+  let response = `📈 *Nutrition Progress*
+
+` +
+    `- Calories: ${totals.calories}/${goals.calories} kcal (${calorieProgress}%)
+` +
+    `- Protein: ${totals.protein}/${goals.protein}g (${proteinProgress}%)
+` +
+    `- Carbs: ${totals.carbs}/${goals.carbs}g (${carbProgress}%)
+` +
+    `- Fat: ${totals.fat}/${goals.fat}g (${fatProgress}%)
+` +
+    `- Fiber: ${totals.fiber}/${goals.fiber}g (${fiberProgress}%)
+` +
+    `- Hydration: ${totals.hydration}/${goals.hydration}ml (${hydrationProgress}%)
+
+`;
   
   // Add motivational messages
   if (calorieProgress >= 100) {
@@ -1209,7 +1275,9 @@ bot.onText(/\/erase(?:@\w+)?\s*(.*)/i, async (msg, match) => {
         response += `- Calories: ${totals.calories}/${goals.calories} kcal\n`;
         response += `- Protein: ${totals.protein}/${goals.protein}g\n`;
         response += `- Carbs: ${totals.carbs}/${goals.carbs}g\n`;
-        response += `- Fat: ${totals.fat}/${goals.fat}g`;
+        response += `- Fat: ${totals.fat}/${goals.fat}g\n`;
+        response += `- Fiber: ${totals.fiber}/${goals.fiber}g\n`;
+        response += `- Hydration: ${totals.hydration}/${goals.hydration}ml`;
         
         await bot.sendMessage(chatId, response, { parse_mode: 'Markdown' });
       } else {
