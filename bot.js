@@ -1115,6 +1115,11 @@ bot.onText(/\/feedback/, (msg) => {
     // Ensure we only process messages from the same chat
     if (responseMsg.chat.id !== chatId) return;
     
+    // Ignore command messages to prevent processing /feedback as feedback content
+    if (responseMsg.text && responseMsg.text.startsWith('/')) {
+      return;
+    }
+    
     // Remove the listener immediately to prevent stacking
     try {
       bot.removeTextListener(feedbackListener);
