@@ -1,0 +1,23 @@
+{
+  "services": {
+    "web-dashboard": {
+      "build": {
+        "context": ".",
+        "dockerfile": "Dockerfile.web"
+      },
+      "ports": [
+        "3000:3000"
+      ],
+      "environment": {
+        "NODE_ENV": "production",
+        "PORT": "3000"
+      },
+      "healthCheck": {
+        "path": "/api/health",
+        "port": 3000,
+        "interval": 30,
+        "timeout": 10
+      }
+    }
+  }
+}
