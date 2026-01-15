@@ -11,6 +11,8 @@ The Food Analyst Bot uses advanced AI to analyze photos of your food and provide
 - Protein content
 - Carbohydrate content
 - Fat content
+- Fiber content
+- Hydration content
 - Serving size information
 
 ## Basic Usage
@@ -28,7 +30,7 @@ Adding a caption helps the AI better understand what you're eating, especially f
 ### 2. Viewing Analysis Results
 After sending a photo, the bot will respond with:
 - Food identification
-- Nutritional breakdown (calories, protein, carbs, fat)
+- Nutritional breakdown (calories, protein, carbs, fat, fiber, hydration)
 - Serving size information
 - Confidence level of the analysis
 - Your daily nutrition totals
@@ -44,21 +46,47 @@ After sending a photo, the bot will respond with:
 - `/summary` - Get today's nutrition summary
 - `/progress` - Check your progress toward goals
 - `/erase` - List and remove food entries from today's log
+- `/leaderboard` or `/top` - View the nutrition leaderboard
 
 ### Feedback
 - `/feedback` - Send bug reports or suggestions to the developer
+
+## Leaderboard Competition
+
+Join the nutrition competition to track your progress against other users:
+
+### Viewing the Leaderboard
+- Send `/leaderboard` or `/top` to see the current standings
+- Rankings are based on how closely you meet your daily nutrition goals
+- Perfect adherence to all goals equals 1000 points
+- Deviations from goals reduce your score proportionally
+- User names are masked for privacy (e.g., "Jo********")
+
+### Scoring System
+- 1000 points: Perfect adherence (all goals at 100%)
+- 900 points: ±10% deviation from goals
+- Lower scores: Greater deviation from targets
+- Score calculated across all nutrition categories: calories, protein, carbs, fat, fiber, hydration
+
+### Web Dashboard
+Visit the web dashboard to view real-time health status and live leaderboard:
+- Health monitoring of bot services
+- Live leaderboard with masked user names
+- Complete instructions for using the bot
+- Updated every 30 seconds for health checks, every 5 minutes for leaderboard
 
 ## Setting Nutrition Goals
 
 You can set personalized nutrition goals to track your daily intake:
 
 1. Send `/goals` to the bot
-2. Enter your daily targets in this format:
+2. Choose between manual entry or AI-guided setup
+3. For manual entry, enter comma-separated values:
    ```
-   calories protein carbs fat
+   calories, protein, carbs, fat, fiber, hydration
    ```
-3. For example: `2000 150 250 70`
-4. Your goals will be saved and used for daily tracking
+4. For AI-guided setup, answer questions about age, height, weight, goals, and activity level
+5. Your goals will be saved and used for daily tracking
 
 ## Correcting Analysis Results
 
@@ -105,6 +133,7 @@ The Food Analyst Bot respects your privacy:
 - Personal information (name, username) is encrypted
 - Nutrition data belongs to you and is not shared
 - You can stop using the bot at any time
+- User names are masked in leaderboard (e.g., "Jo********")
 
 ## Troubleshooting
 
@@ -168,6 +197,11 @@ If you're experiencing issues not covered here:
    - Or use `/erase` to see a list and remove specific entries
    - Check updated totals with `/progress`
 
+6. **Leaderboard Competition**:
+   - Check `/leaderboard` to see how you're doing compared to others
+   - Aim for perfect adherence to goals to earn higher scores
+   - Visit the web dashboard for real-time updates
+
 ## Frequently Asked Questions
 
 **Q: Is my data secure?**
@@ -180,10 +214,16 @@ A: Yes, the bot works in both direct messages and configured channels.
 A: The AI provides estimates based on visual analysis. Actual values may vary.
 
 **Q: What happens if I don't set goals?**
-A: Default goals are used (2000 calories, 150g protein, 250g carbs, 70g fat).
+A: Default goals are used (2000 calories, 150g protein, 250g carbs, 70g fat, 25g fiber, 2000ml hydration).
 
 **Q: Can I delete my data?**
 A: Contact the developer through the `/feedback` command to request data deletion.
+
+**Q: How do I join the leaderboard competition?**
+A: Just use the bot regularly! Your scores are automatically calculated based on how closely you meet your daily goals.
+
+**Q: Where can I view the web dashboard?**
+A: The web dashboard URL will be provided by the bot developer for health monitoring and live leaderboard viewing.
 
 ## Terms of Use
 

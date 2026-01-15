@@ -7,9 +7,10 @@
 4. [Data Storage](#data-storage)
 5. [API Integrations](#api-integrations)
 6. [Core Components](#core-components)
-7. [Deployment](#deployment)
-8. [Security](#security)
-9. [Development Guidelines](#development-guidelines)
+7. [Web Dashboard](#web-dashboard)
+8. [Deployment](#deployment)
+9. [Security](#security)
+10. [Development Guidelines](#development-guidelines)
 
 ## Architecture Overview
 
@@ -26,6 +27,13 @@ The Food Analyst Bot is a Node.js application that integrates with Telegram and 
                        │ Claude AI    │
                        │   Vision     │
                        └──────────────┘
+                              │
+                              ▼
+                       ┌──────────────┐
+                       │ Web Dashboard│
+                       │   (Health &  │
+                       │ Leaderboard) │
+                       └──────────────┘
 ```
 
 ## Technology Stack
@@ -37,6 +45,8 @@ The Food Analyst Bot is a Node.js application that integrates with Telegram and 
 - **Data Storage**: Redis
 - **Scheduling**: node-cron
 - **Configuration**: dotenv
+- **Web Framework**: Express.js
+- **HTTP Client**: Axios
 - **Deployment**: Zeabur
 
 ## Project Structure
@@ -44,10 +54,16 @@ The Food Analyst Bot is a Node.js application that integrates with Telegram and 
 ```
 food-analyst-bot/
 ├── bot.js              # Main application file
+├── server.js           # Web dashboard server
+├── web/
+│   └── index.html      # Web dashboard frontend
 ├── package.json        # Dependencies and scripts
 ├── .env.example        # Environment variable template
 ├── .gitignore          # Git ignore rules
 ├── zeabur.config.js    # Zeabur deployment configuration
+├── zeabur-web.config.json # Web dashboard deployment config
+├── Dockerfile.web      # Web dashboard Docker configuration
+├── WEB_DASHBOARD.md    # Web dashboard documentation
 ├── TECHNICAL.md        # Technical documentation (this file)
 └── USER_GUIDE.md       # User guide
 ```
@@ -66,11 +82,15 @@ food-analyst-bot/
    - Contains food entries with nutritional information
 
 3. **`goals`**: Stores user nutrition goals
-   - Daily targets for calories, protein, carbs, and fat
+   - Daily targets for calories, protein, carbs, fat, fiber, and hydration
 
 4. **`message_associations`**: Maps bot messages to nutrition data
    - Enables reply-based correction feature
    - Links message IDs to original nutrition data
+
+5. **`leaderboard_cache`**: Stores cached leaderboard data
+   - Cached results for improved performance
+   - Expires every 5 minutes
 
 ### Encryption
 
@@ -124,24 +144,58 @@ Sensitive user data is encrypted using AES-256-CBC:
 5. **load/saveGoals()**: Manages user nutrition goals
 6. **saveMessageAssociation()**: Links messages to nutrition data for corrections
 
+## Web Dashboard
+
+The web dashboard provides health monitoring and leaderboard functionality via a web interface.
+
+### Components
+
+1. **Frontend** (`web/index.html`): Responsive web interface with tabs for health status, live leaderboard, and user instructions
+2. **Backend API** (`server.js`): Express.js server with health check and leaderboard endpoints
+3. **API Endpoints**:
+   - `GET /api/health`: Service health status
+   - `GET /api/leaderboard`: Live leaderboard data
+   - `GET /api/stats`: General statistics
+
+### Features
+
+- **Health Monitoring**: Real-time status of Telegram bot, Redis database, Claude AI service, and web service
+- **Live Leaderboard**: Real-time nutrition competition with masked user names for privacy
+- **User Instructions**: Complete guide for using the bot and adding it to chats/channels
+- **Automatic Updates**: Health checks every 30 seconds, leaderboard refresh every 5 minutes
+
+### Leaderboard Scoring Algorithm
+
+Scores are calculated based on % deviation from daily nutrition goals:
+- Perfect adherence (all goals at 100%) = 1000 points
+- Deviations reduce the score proportionally (e.g., ±10% deviation ≈ 900 points)
+- Calculated across 6 nutrition categories: calories, protein, carbs, fat, fiber, hydration
+
 ## Deployment
 
 ### Zeabur Configuration
 
-The `zeabur.config.js` file defines:
+The `zeabur.config.js` file defines the main bot service:
 - Container port: 3000
 - Setup commands: `npm install`
 - Start command: `npm start`
 - Services: Redis service definition
 
+The `zeabur-web.config.json` file defines the web dashboard service:
+- Build context: current directory
+- Dockerfile: `Dockerfile.web`
+- Port mapping: 3000:3000
+- Health checks: `/api/health` endpoint
+
 ### Environment Variables
 
-Required environment variables:
+Required environment variables for both services:
 - `TELEGRAM_TOKEN`: Telegram bot token
 - `ANTHROPIC_API_KEY`: Claude AI API key
 - `DEVELOPER_CHAT_ID`: Developer's Telegram ID for feedback
 - `ENCRYPTION_KEY`: 32-character encryption key (optional)
 - `REDIS_URL`: Redis connection string (auto-configured)
+- `PORT`: Port for web dashboard (default: 3000)
 
 ## Security
 
@@ -158,6 +212,7 @@ Required environment variables:
 2. **User Control**: Users can interact without sharing personal data
 3. **Developer Access**: Limited access to user information via /users command
 4. **No Third-party Sharing**: Data is not shared with external services
+5. **Masked Names**: User names are masked in leaderboard (e.g., "Jo********")
 
 ## Development Guidelines
 
@@ -177,7 +232,7 @@ Required environment variables:
 
 ### Deployment Best Practices
 
-- Update zeabur.config.js for service changes
+- Update zeabur.config.js and zeabur-web.config.json for service changes
 - Maintain backward compatibility in data structures
 - Document breaking changes in commit messages
 - Test thoroughly before deploying to production
