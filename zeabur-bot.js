@@ -7,8 +7,51 @@ const path = require('path');
 const cron = require('node-cron');
 const redis = require('redis');
 const crypto = require('crypto');
+const express = require('express');
 
-const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
+// Create Express app for health checks
+const app = express();
+const port = process.env.PORT || 3000;
+
+// Initialize bot with webhook (more suitable for cloud deployment)
+let bot;
+if (process.env.USE_WEBHOOK === 'true' && process.env.WEBHOOK_URL) {
+  // Use webhook mode
+  bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { 
+    webHook: { 
+      port: port,
+      host: '0.0.0.0'
+    } 
+  });
+  
+  // Set webhook
+  const webhookUrl = `${process.env.WEBHOOK_URL}/bot${process.env.TELEGRAM_BOT_TOKEN}`;
+  bot.setWebHook(webhookUrl);
+  
+  console.log('✅ Bot initialized in webhook mode');
+} else {
+  // Use polling mode with proper stopping mechanism
+  console.log('⚠️ Bot initialized in polling mode - ensure only one instance is running');
+  
+  // Stop any previous polling to prevent conflicts
+  try {
+    bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: { abortControllers: [] } });
+  } catch (e) {
+    console.log('Attempting to initialize bot with basic polling');
+    bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
+  }
+  
+  // Handle polling errors gracefully
+  bot.on('polling_error', (error) => {
+    if (error.code === 'EFATAL') {
+      console.error('🚨 Fatal polling error:', error.message);
+      console.error('This may be caused by multiple bot instances running. Ensure only one instance is active.');
+    } else {
+      console.error('Polling error:', error.message);
+    }
+  });
+}
+
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 // Initialize Redis client
@@ -445,6 +488,10 @@ async function processCorrection(msg) {
             `- Carbs: ${correction.carbs}g
 ` +
             `- Fat: ${correction.fat}g
+` +
+            `- Fiber: ${correction.fiber || 0}g
+` +
+            `- Hydration: ${correction.hydration || 0}ml
 
 ` +
             `📏 Serving: ${correction.serving_size}
@@ -461,6 +508,10 @@ async function processCorrection(msg) {
             `- Carbs: ${totals.carbs}/${goals.carbs}g
 ` +
             `- Fat: ${totals.fat}/${goals.fat}g
+` +
+            `- Fiber: ${totals.fiber}/${goals.fiber}g
+` +
+            `- Hydration: ${totals.hydration}/${goals.hydration}ml
 
 ` +
             `_Note: Updated based on user correction._
@@ -749,12 +800,12 @@ Return ONLY a JSON object with this exact format (no markdown, no explanation):
 }
 
 Base estimates on typical serving sizes. Be specific about the food identified. For hydration, estimate water content in ml. For fiber, estimate dietary fiber content in grams.`;
-  
+
   // If user provided a caption, include it as additional context
   if (caption) {
     promptText += `\n\nThe user has provided the following description of the food: "${caption}". Please consider this information when analyzing the image.`;
   }
-  
+
   const message = await anthropic.messages.create({
     model: 'claude-sonnet-4-20250514',
     max_tokens: 1024,
@@ -1333,7 +1384,7 @@ bot.onText(/\/leaderboard|\/top/i, async (msg) => {
     let leaderboardText = `🏆 *Nutrition Leaderboard*
 
 `;
-    
+
     for (let i = 0; i < Math.min(10, leaderboard.length); i++) {
       const user = leaderboard[i];
       const position = i + 1;
@@ -1400,7 +1451,30 @@ bot.on('message', async (msg) => {
   }
 });
 
-console.log('🤖 Food Analyst Bot is running...');
+// Health check endpoint
+app.get('/', (req, res) => {
+  res.json({ 
+    status: 'healthy', 
+    service: 'Food Analyst Bot',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
+// Additional health check endpoint for Zeabur
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'OK',
+    message: 'Service is running',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Start the Express server for health checks
+app.listen(port, '0.0.0.0', () => {
+  console.log(`🤖 Food Analyst Bot is running on port ${port}`);
+  console.log(`Health check available at http://localhost:${port}/health`);
+});
 
 // Test Redis connection
 redisClient.on('connect', () => {
@@ -1445,7 +1519,7 @@ async function handleManualGoals(chatId) {
     'Example: `2000, 150, 250, 70, 25, 2000`\n\n' +
     'Or type `/cancel` to cancel.'
   );
-  
+
   // Set up listener for manual goal input
   const manualGoalListener = bot.on('message', async (responseMsg) => {
     // Ensure we only process messages from the same chat
@@ -1946,4 +2020,37 @@ cron.schedule('0 0,12 * * *', async () => {
   }
 });
 
+console.log('🤖 Food Analyst Bot is running...');
 
+// Test Redis connection
+redisClient.on('connect', () => {
+  console.log('✅ Connected to Redis successfully');
+  
+  // Test Redis read/write
+  redisClient.set('test_key', 'test_value')
+    .then(() => redisClient.get('test_key'))
+    .then(value => {
+      if (value === 'test_value') {
+        console.log('✅ Redis read/write test passed');
+      } else {
+        console.log('❌ Redis read/write test failed');
+      }
+      
+      // Test encryption/decryption
+      const testData = 'This is a test string for encryption';
+      const encrypted = encrypt(testData);
+      const decrypted = decrypt(encrypted);
+      
+      if (testData === decrypted) {
+        console.log('✅ Encryption/decryption test passed');
+      } else {
+        console.log('❌ Encryption/decryption test failed');
+        console.log('Original:', testData);
+        console.log('Encrypted:', encrypted);
+        console.log('Decrypted:', decrypted);
+      }
+    })
+    .catch(err => {
+      console.error('❌ Redis read/write test error:', err);
+    });
+});
