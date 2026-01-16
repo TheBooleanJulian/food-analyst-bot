@@ -225,6 +225,25 @@ A: Just use the bot regularly! Your scores are automatically calculated based on
 **Q: Where can I view the web dashboard?**
 A: The web dashboard URL will be provided by the bot developer for health monitoring and live leaderboard viewing.
 
+## Troubleshooting Deployment Issues
+
+If you encounter deployment issues:
+
+### 502 Bad Gateway Errors
+- This usually occurs when the service doesn't respond to health checks
+- Ensure your deployment includes proper web server functionality
+- Verify that your service listens on the correct port (usually 3000)
+
+### Telegram Conflict Errors
+- Error message: `409 Conflict: terminated by other getUpdates request`
+- This occurs when multiple instances of the bot try to poll simultaneously
+- Ensure only one instance of the bot is running at a time
+
+### Redis Connection Issues
+- Verify your Redis URL is correctly configured
+- Check that your environment variables are properly set
+- Confirm Redis service is running and accessible
+
 ## Terms of Use
 
 By using the Food Analyst Bot, you agree that:

@@ -9,8 +9,9 @@
 6. [Core Components](#core-components)
 7. [Web Dashboard](#web-dashboard)
 8. [Deployment](#deployment)
-9. [Security](#security)
-10. [Development Guidelines](#development-guidelines)
+9. [Zeabur Deployment Specifics](#zeabur-deployment-specifics)
+10. [Security](#security)
+11. [Development Guidelines](#development-guidelines)
 
 ## Architecture Overview
 
@@ -176,9 +177,10 @@ Scores are calculated based on % deviation from daily nutrition goals:
 ### Zeabur Configuration
 
 The `zeabur.config.js` file defines the main bot service:
-- Container port: 3000
-- Setup commands: `npm install`
-- Start command: `npm start`
+- Port: 3000
+- Install command: `npm install`
+- Start command: `npm start` (runs `node zeabur-bot.js`)
+- Health check: Root path `/` with 30-second interval
 - Services: Redis service definition
 
 The `zeabur-web.config.json` file defines the web dashboard service:
@@ -186,6 +188,31 @@ The `zeabur-web.config.json` file defines the web dashboard service:
 - Dockerfile: `Dockerfile.web`
 - Port mapping: 3000:3000
 - Health checks: `/api/health` endpoint
+
+## Zeabur Deployment Specifics
+
+### Addressing Common Deployment Issues
+
+#### Redis API Compatibility
+- **Issue**: `redisClient.setex is not a function` error due to Redis v5+ API changes
+- **Solution**: Updated to use `redisClient.set('key', 'value', { EX: seconds })` syntax
+- **Files affected**: `bot.js`, `zeabur-bot.js`
+
+#### Telegram Polling Conflicts
+- **Issue**: `409 Conflict: terminated by other getUpdates request` when multiple instances run
+- **Solution**: Added proper error handling and warnings to ensure only one bot instance runs
+- **Mitigation**: Use webhook mode when possible, otherwise ensure single instance deployment
+
+#### Health Check Configuration
+- **Purpose**: Prevent 502 Bad Gateway errors from Zeabur
+- **Implementation**: Added Express.js server with health check endpoints
+- **Endpoints**: `/` and `/health` return proper JSON responses
+- **Configuration**: Defined in `zeabur.config.js` with appropriate intervals and timeouts
+
+### Deployment Scripts
+- **`deploy.sh`**: Shell script for deployment verification and startup
+- **Environment validation**: Checks for required environment variables before starting
+- **Proper startup**: Ensures bot initializes correctly in cloud environment
 
 ### Environment Variables
 

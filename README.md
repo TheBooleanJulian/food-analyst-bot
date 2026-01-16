@@ -27,5 +27,6 @@ For detailed information, please refer to:
 - 💬 Interactive commands for managing nutrition data
 - 🏥 Health monitoring dashboard
 - 🔐 Secure handling of API keys and user data
+- ☁️ Cloud-ready deployment with Zeabur compatibility
 
 For detailed information about commands, setup, deployment, and technical details, please refer to the [User Guide](USER_GUIDE.md), [Technical Documentation](TECHNICAL.md), and [Web Dashboard Guide](WEB_DASHBOARD.md).

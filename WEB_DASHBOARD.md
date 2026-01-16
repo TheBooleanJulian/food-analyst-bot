@@ -129,6 +129,22 @@ services:
       - PORT=3000
 ```
 
+### Common Deployment Issues and Solutions
+
+#### 502 Bad Gateway Errors
+- **Cause**: Service not responding to health checks
+- **Solution**: Ensure Express.js server is running and responding to root path (`/`)
+- **Verification**: Check that your service listens on the correct port
+
+#### Redis API Compatibility
+- **Issue**: `redisClient.setex is not a function` with newer Redis versions
+- **Solution**: Use `redisClient.set('key', 'value', { EX: seconds })` syntax
+
+#### Health Check Configuration
+- **Best practice**: Define proper health check endpoints in your configuration
+- **Interval**: Set appropriate health check intervals (typically 30 seconds)
+- **Timeout**: Configure adequate response timeout values
+
 2. Create a simple Dockerfile for the web service:
 ```dockerfile
 FROM node:18-alpine
