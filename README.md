@@ -23,6 +23,7 @@ For detailed information, please refer to:
 - 📊 Daily nutrition tracking and goal setting
 - 🏆 Live leaderboard with masked user names
 - 🎯 Personalized nutrition goals
+- ⭐ Individual scoring system (0-1000 points) based on goal adherence
 - 📅 Daily summaries at 11:59 PM
 - 💬 Interactive commands for managing nutrition data
 - 🏥 Health monitoring dashboard

@@ -45,6 +45,7 @@ After sending a photo, the bot will respond with:
 - `/goals` - Set your daily nutrition goals
 - `/summary` - Get today's nutrition summary
 - `/progress` - Check your progress toward goals
+- `/score` - Get your daily nutrition score (0-1000)
 - `/erase` - List and remove food entries from today's log
 - `/leaderboard` or `/top` - View the nutrition leaderboard
 

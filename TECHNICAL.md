@@ -172,6 +172,16 @@ Scores are calculated based on % deviation from daily nutrition goals:
 - Deviations reduce the score proportionally (e.g., ±10% deviation ≈ 900 points)
 - Calculated across 6 nutrition categories: calories, protein, carbs, fat, fiber, hydration
 
+### Individual Scoring System
+
+Users can check their individual daily score using the `/score` command:
+- **Score Range**: 0-1000 points
+- **Calculation**: Based on percentage deviation from all nutrition goals
+- **Real-time Updates**: Score updates with each food entry
+- **Score Interpretation**: Higher scores indicate closer adherence to goals
+- **Components**: Considers all six nutrition categories equally
+- **Command Access**: Available to all users via `/score` command
+
 ## Deployment
 
 ### Zeabur Configuration

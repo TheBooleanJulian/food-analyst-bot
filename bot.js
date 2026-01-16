@@ -655,6 +655,39 @@ async function getDailySummary(chatId) {
   const totals = await getTodayTotals(chatId);
   const goals = await loadGoals();
   
+  // Calculate score based on % deviation from goals
+  const percentages = {
+    calories: totals.calories / goals.calories,
+    protein: totals.protein / goals.protein,
+    carbs: totals.carbs / goals.carbs,
+    fat: totals.fat / goals.fat,
+    fiber: totals.fiber / goals.fiber,
+    hydration: totals.hydration / goals.hydration
+  };
+  
+  // Calculate absolute deviations from 100% (1.0)
+  const deviations = {
+    calories: Math.abs(percentages.calories - 1),
+    protein: Math.abs(percentages.protein - 1),
+    carbs: Math.abs(percentages.carbs - 1),
+    fat: Math.abs(percentages.fat - 1),
+    fiber: Math.abs(percentages.fiber - 1),
+    hydration: Math.abs(percentages.hydration - 1)
+  };
+  
+  // Calculate average deviation
+  const avgDeviation = (
+    deviations.calories + 
+    deviations.protein + 
+    deviations.carbs + 
+    deviations.fat + 
+    deviations.fiber + 
+    deviations.hydration
+  ) / 6;
+  
+  // Convert to score (1000 - deviation * 1000)
+  const score = Math.max(0, Math.round(1000 - (avgDeviation * 1000)));
+  
   let summary = `🍽️ *Daily Nutrition Summary* (${today})\n\n`;
   
   entries.forEach((entry, index) => {
@@ -683,7 +716,24 @@ async function getDailySummary(chatId) {
   summary += `- Carbs: ${carbProgress}%\n`;
   summary += `- Fat: ${fatProgress}%\n`;
   summary += `- Fiber: ${fiberProgress}%\n`;
-  summary += `- Hydration: ${hydrationProgress}%\n`;
+  summary += `- Hydration: ${hydrationProgress}%\n\n`;
+  
+  // Add scoring information
+  summary += `⭐ *Today's Score:* ${score}/1000\n`;
+  summary += `📊 *Goal Adherence:* C:${calorieProgress}% P:${proteinProgress}% C:${carbProgress}% F:${fatProgress}% Fi:${fiberProgress}% H:${hydrationProgress}%\n\n`;
+  
+  // Add score interpretation
+  if (score >= 950) {
+    summary += `🎉 *Outstanding!* You're extremely close to your goals!`;
+  } else if (score >= 850) {
+    summary += `👏 *Excellent!* Great job staying on track with your nutrition goals!`;
+  } else if (score >= 700) {
+    summary += `👍 *Good job!* You're making solid progress toward your goals!`;
+  } else if (score >= 500) {
+    summary += `💪 *Keep going!* You're halfway to your goals, stay strong!`;
+  } else {
+    summary += `🚀 *You've got this!* Remember, every small step counts toward your goals!`;
+  }
   
   return summary;
 }
@@ -812,6 +862,39 @@ bot.on('photo', async (msg) => {
     const totals = await getTodayTotals(chatId);
     const goals = await loadGoals();
     
+    // Calculate score based on % deviation from goals
+    const percentages = {
+      calories: totals.calories / goals.calories,
+      protein: totals.protein / goals.protein,
+      carbs: totals.carbs / goals.carbs,
+      fat: totals.fat / goals.fat,
+      fiber: totals.fiber / goals.fiber,
+      hydration: totals.hydration / goals.hydration
+    };
+    
+    // Calculate absolute deviations from 100% (1.0)
+    const deviations = {
+      calories: Math.abs(percentages.calories - 1),
+      protein: Math.abs(percentages.protein - 1),
+      carbs: Math.abs(percentages.carbs - 1),
+      fat: Math.abs(percentages.fat - 1),
+      fiber: Math.abs(percentages.fiber - 1),
+      hydration: Math.abs(percentages.hydration - 1)
+    };
+    
+    // Calculate average deviation
+    const avgDeviation = (
+      deviations.calories + 
+      deviations.protein + 
+      deviations.carbs + 
+      deviations.fat + 
+      deviations.fiber + 
+      deviations.hydration
+    ) / 6;
+    
+    // Convert to score (1000 - deviation * 1000)
+    const score = Math.max(0, Math.round(1000 - (avgDeviation * 1000)));
+    
     // Format response
     const response = `🍽️ **${nutrition.food_name}**
 
@@ -834,7 +917,10 @@ bot.on('photo', async (msg) => {
 - Fiber: ${totals.fiber}/${goals.fiber}g
 - Hydration: ${totals.hydration}/${goals.hydration}ml
 
-_Note: These are estimates based on visual analysis._
+⭐ **Today's Score:** ${score}/1000
+📊 **Goal Progress:** C:${Math.round(percentages.calories * 100)}% P:${Math.round(percentages.protein * 100)}% C:${Math.round(percentages.carbs * 100)}% F:${Math.round(percentages.fat * 100)}% Fi:${Math.round(percentages.fiber * 100)}% H:${Math.round(percentages.hydration * 100)}%
+
+_Note: Score is based on how close you are to your daily nutrition goals (1000 = perfect adherence)._
 Powered by _Claude AI 🤖_`;
 
     // Save message association for future corrections
@@ -880,6 +966,39 @@ bot.on('channel_post', async (msg) => {
     const totals = await getTodayTotals(chatId);
     const goals = await loadGoals();
     
+    // Calculate score based on % deviation from goals
+    const percentages = {
+      calories: totals.calories / goals.calories,
+      protein: totals.protein / goals.protein,
+      carbs: totals.carbs / goals.carbs,
+      fat: totals.fat / goals.fat,
+      fiber: totals.fiber / goals.fiber,
+      hydration: totals.hydration / goals.hydration
+    };
+    
+    // Calculate absolute deviations from 100% (1.0)
+    const deviations = {
+      calories: Math.abs(percentages.calories - 1),
+      protein: Math.abs(percentages.protein - 1),
+      carbs: Math.abs(percentages.carbs - 1),
+      fat: Math.abs(percentages.fat - 1),
+      fiber: Math.abs(percentages.fiber - 1),
+      hydration: Math.abs(percentages.hydration - 1)
+    };
+    
+    // Calculate average deviation
+    const avgDeviation = (
+      deviations.calories + 
+      deviations.protein + 
+      deviations.carbs + 
+      deviations.fat + 
+      deviations.fiber + 
+      deviations.hydration
+    ) / 6;
+    
+    // Convert to score (1000 - deviation * 1000)
+    const score = Math.max(0, Math.round(1000 - (avgDeviation * 1000)));
+    
     // Format response
     const response = `🍽️ **${nutrition.food_name}**
 
@@ -902,7 +1021,10 @@ bot.on('channel_post', async (msg) => {
 - Fiber: ${totals.fiber}/${goals.fiber}g
 - Hydration: ${totals.hydration}/${goals.hydration}ml
 
-_Note: These are estimates based on visual analysis._`;
+⭐ **Today's Score:** ${score}/1000
+📊 **Goal Progress:** C:${Math.round(percentages.calories * 100)}% P:${Math.round(percentages.protein * 100)}% C:${Math.round(percentages.carbs * 100)}% F:${Math.round(percentages.fat * 100)}% Fi:${Math.round(percentages.fiber * 100)}% H:${Math.round(percentages.hydration * 100)}%
+
+_Note: Score is based on how close you are to your daily nutrition goals (1000 = perfect adherence)._`;
 
     // Save message association for future corrections
     const sentMessage = await bot.sendMessage(chatId, response, { parse_mode: 'Markdown', reply_to_message_id: msg.message_id });
@@ -950,6 +1072,7 @@ bot.onText(/\/help/, (msg) => {
     '/goals - Set your daily nutrition goals (calories, protein, carbs, fat, fiber, hydration)\n' +
     '/summary - Get today\'s nutrition summary including fiber and hydration\n' +
     '/progress - Check your progress toward all nutrition goals\n' +
+    '/score - Get your daily nutrition score (0-1000)\n' +
     '/erase - List and remove food entries\n\n' +
     '🏆 *Leaderboard Commands:*\n' +
     '/leaderboard or /top - View the nutrition leaderboard with masked names\n\n' +
@@ -1066,6 +1189,39 @@ bot.onText(/\/progress/, async (msg) => {
   const fiberProgress = Math.round((totals.fiber / goals.fiber) * 100);
   const hydrationProgress = Math.round((totals.hydration / goals.hydration) * 100);
   
+  // Calculate score based on % deviation from goals
+  const percentages = {
+    calories: totals.calories / goals.calories,
+    protein: totals.protein / goals.protein,
+    carbs: totals.carbs / goals.carbs,
+    fat: totals.fat / goals.fat,
+    fiber: totals.fiber / goals.fiber,
+    hydration: totals.hydration / goals.hydration
+  };
+  
+  // Calculate absolute deviations from 100% (1.0)
+  const deviations = {
+    calories: Math.abs(percentages.calories - 1),
+    protein: Math.abs(percentages.protein - 1),
+    carbs: Math.abs(percentages.carbs - 1),
+    fat: Math.abs(percentages.fat - 1),
+    fiber: Math.abs(percentages.fiber - 1),
+    hydration: Math.abs(percentages.hydration - 1)
+  };
+  
+  // Calculate average deviation
+  const avgDeviation = (
+    deviations.calories + 
+    deviations.protein + 
+    deviations.carbs + 
+    deviations.fat + 
+    deviations.fiber + 
+    deviations.hydration
+  ) / 6;
+  
+  // Convert to score (1000 - deviation * 1000)
+  const score = Math.max(0, Math.round(1000 - (avgDeviation * 1000)));
+  
   let response = `📈 *Nutrition Progress*
 
 ` +
@@ -1083,18 +1239,81 @@ bot.onText(/\/progress/, async (msg) => {
 
 `;
   
+  // Add scoring information
+  response += `⭐ *Today's Score:* ${score}/1000
+`;
+  response += `📊 *Goal Adherence:* C:${calorieProgress}% P:${proteinProgress}% C:${carbProgress}% F:${fatProgress}% Fi:${fiberProgress}% H:${hydrationProgress}%
+\n`;
+  
   // Add motivational messages
-  if (calorieProgress >= 100) {
-    response += '🎉 You\'ve reached your calorie goal!';
-  } else if (calorieProgress >= 90) {
-    response += '🏃 Almost there! You\'re close to your calorie goal.';
-  } else if (calorieProgress >= 50) {
-    response += '👍 Good progress on your calories!';
+  if (score >= 950) {
+    response += '🎉 Outstanding! You\'re extremely close to all your goals!';
+  } else if (score >= 850) {
+    response += '👏 Excellent! Great job staying on track with your nutrition goals!';
+  } else if (score >= 700) {
+    response += '👍 Good job! You\'re making solid progress toward your goals!';
+  } else if (score >= 500) {
+    response += '💪 Keep going! You\'re halfway to your goals, stay strong!';
   } else {
-    response += '🚀 Keep going!';
+    response += '🚀 You\'ve got this! Remember, every small step counts toward your goals!';
   }
   
   await bot.sendMessage(chatId, response, { parse_mode: 'Markdown' });
+});
+
+// Check today's score
+bot.onText(/\/score/, async (msg) => {
+  const chatId = msg.chat.id;
+  // Allow both channel and direct messages
+  const isAuthorized = chatId.toString() === process.env.CHAT_ID || msg.chat.type === 'private';
+  if (!isAuthorized) return;
+  
+  const { score, totals, goals, percentages, deviations } = await getTodayScore(chatId);
+  
+  const calorieProgress = Math.round(percentages.calories * 100);
+  const proteinProgress = Math.round(percentages.protein * 100);
+  const carbProgress = Math.round(percentages.carbs * 100);
+  const fatProgress = Math.round(percentages.fat * 100);
+  const fiberProgress = Math.round(percentages.fiber * 100);
+  const hydrationProgress = Math.round(percentages.hydration * 100);
+  
+  let scoreResponse = `⭐ *Today's Nutrition Score*
+
+`;
+  scoreResponse += `📊 *Total Nutrition:*
+`;
+  scoreResponse += `- Calories: ${totals.calories}/${goals.calories} kcal (${calorieProgress}%)
+`;
+  scoreResponse += `- Protein: ${totals.protein}/${goals.protein}g (${proteinProgress}%)
+`;
+  scoreResponse += `- Carbs: ${totals.carbs}/${goals.carbs}g (${carbProgress}%)
+`;
+  scoreResponse += `- Fat: ${totals.fat}/${goals.fat}g (${fatProgress}%)
+`;
+  scoreResponse += `- Fiber: ${totals.fiber}/${goals.fiber}g (${fiberProgress}%)
+`;
+  scoreResponse += `- Hydration: ${totals.hydration}/${goals.hydration}ml (${hydrationProgress}%)
+\n`;
+  
+  scoreResponse += `🎯 *Score:* ${score}/1000
+`;
+  scoreResponse += `📈 *Goal Adherence:* C:${calorieProgress}% P:${proteinProgress}% C:${carbProgress}% F:${fatProgress}% Fi:${fiberProgress}% H:${hydrationProgress}%
+\n`;
+  
+  // Add score interpretation
+  if (score >= 950) {
+    scoreResponse += `🎉 *Outstanding!* You're extremely close to your goals!`;
+  } else if (score >= 850) {
+    scoreResponse += `👏 *Excellent!* Great job staying on track with your nutrition goals!`;
+  } else if (score >= 700) {
+    scoreResponse += `👍 *Good job!* You're making solid progress toward your goals!`;
+  } else if (score >= 500) {
+    scoreResponse += `💪 *Keep going!* You're halfway to your goals, stay strong!`;
+  } else {
+    scoreResponse += `🚀 *You've got this!* Remember, every small step counts toward your goals!`;
+  }
+  
+  await bot.sendMessage(chatId, scoreResponse, { parse_mode: 'Markdown' });
 });
 
 // Feedback command
