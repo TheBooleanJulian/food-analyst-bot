@@ -1,10 +1,16 @@
 const express = require('express');
 const redis = require('redis');
 const axios = require('axios');
+const path = require('path');
+const fs = require('fs').promises;
 require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+// Middleware
+app.use(express.static(path.join(__dirname, 'web')));
+app.use(express.json());
 
 // Initialize Redis client
 const redisClient = redis.createClient({
@@ -271,7 +277,24 @@ app.get('/api/stats', async (req, res) => {
 
 // Serve the main page
 app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/web/index.html');
+  // If requesting root, serve the dashboard if it exists, otherwise return health status
+  const indexPath = path.join(__dirname, 'web', 'index.html');
+  
+  // Check if index.html exists in web directory
+  fs.access(indexPath, fs.constants.F_OK)
+    .then(() => {
+      // If index.html exists, serve the dashboard
+      res.sendFile(indexPath);
+    })
+    .catch(() => {
+      // If index.html doesn't exist, return health status
+      res.json({ 
+        status: 'healthy', 
+        service: 'Food Analyst Bot Dashboard',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
+      });
+    });
 });
 
 // Start server
