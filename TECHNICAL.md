@@ -182,6 +182,17 @@ Users can check their individual daily score using the `/score` command:
 - **Components**: Considers all six nutrition categories equally
 - **Command Access**: Available to all users via `/score` command
 
+### Leaderboard Abbreviations
+
+The leaderboard displays nutrition goal adherence using standardized abbreviations:
+- **Calories**: cal
+- **Protein**: prot
+- **Carbohydrates**: carbs
+- **Fat**: fats
+- **Fiber**: fib
+- **Hydration**: hyd
+- **Display Location**: Top 3 positions in `/leaderboard` command and web dashboard
+
 ## Deployment
 
 ### Zeabur Configuration

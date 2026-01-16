@@ -1402,7 +1402,7 @@ bot.onText(/\/leaderboard|\/top/i, async (msg) => {
         const fibPercent = Math.round(user.percentages.fiber * 100);
         const hydPercent = Math.round(user.percentages.hydration * 100);
         
-        leaderboardText += `   └─ C:${calPercent}% P:${protPercent}% C:${carbPercent}% F:${fatPercent}% Fi:${fibPercent}% H:${hydPercent}%
+        leaderboardText += `   └─ cal:${calPercent}% prot:${protPercent}% carbs:${carbPercent}% fats:${fatPercent}% fib:${fibPercent}% hyd:${hydPercent}%
 `;
       }
     }
@@ -1633,11 +1633,15 @@ app.get('/api/leaderboard', async (req, res) => {
         let displayName = `User ${chatId}`;
         if (users[chatId]) {
           const userInfo = users[chatId];
-          // In a real implementation, you'd decrypt the user data here
-          if (userInfo.username) {
-            displayName = userInfo.username.replace(/:/g, ''); // Remove encryption markers
-          } else if (userInfo.fullName) {
-            displayName = userInfo.fullName.replace(/:/g, '');
+          // Decrypt user's name for display (try different name fields)
+          if (userInfo.fullName) {
+            displayName = decrypt(userInfo.fullName);
+          } else if (userInfo.firstName && userInfo.lastName) {
+            displayName = `${decrypt(userInfo.firstName)} ${decrypt(userInfo.lastName)}`;
+          } else if (userInfo.firstName) {
+            displayName = decrypt(userInfo.firstName);
+          } else if (userInfo.username) {
+            displayName = decrypt(userInfo.username);
           }
         }
         
@@ -1661,7 +1665,7 @@ app.get('/api/leaderboard', async (req, res) => {
     const rankedLeaderboard = leaderboard.map((user, index) => ({
       ...user,
       rank: index + 1,
-      details: `C:${Math.round(user.percentages.calories * 100)}% P:${Math.round(user.percentages.protein * 100)}% C:${Math.round(user.percentages.carbs * 100)}% F:${Math.round(user.percentages.fat * 100)}% Fi:${Math.round(user.percentages.fiber * 100)}% H:${Math.round(user.percentages.hydration * 100)}%`
+      details: `cal:${Math.round(user.percentages.calories * 100)}% prot:${Math.round(user.percentages.protein * 100)}% carbs:${Math.round(user.percentages.carbs * 100)}% fats:${Math.round(user.percentages.fat * 100)}% fib:${Math.round(user.percentages.fiber * 100)}% hyd:${Math.round(user.percentages.hydration * 100)}%`
     }));
     
     res.json({

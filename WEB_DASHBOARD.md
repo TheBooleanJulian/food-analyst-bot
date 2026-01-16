@@ -17,6 +17,7 @@ A comprehensive health monitoring dashboard and leaderboard viewer for the Food 
 - Privacy-protected user names (masked display)
 - Automatic refresh every 5 minutes
 - Detailed nutrition breakdown for top performers
+- Nutrition goal adherence shown with abbreviations: cal, prot, carbs, fats, fib, hyd
 
 ### 📋 User Instructions
 - Complete guide for adding bot to chats/channels
@@ -83,7 +84,7 @@ Returns the current leaderboard data:
       "userId": "123456789",
       "displayName": "Jo********",
       "score": 987,
-      "details": "C:95% P:102% C:98% F:101% Fi:97% H:103%"
+      "details": "cal:95% prot:102% carbs:98% fats:101% fib:97% hyd:103%"
     }
   ],
   "totalUsers": 5

@@ -76,6 +76,15 @@ Visit the web dashboard to view real-time health status and live leaderboard:
 - Complete instructions for using the bot
 - Updated every 30 seconds for health checks, every 5 minutes for leaderboard
 
+### Leaderboard Abbreviations
+The leaderboard displays nutrition goal adherence using these abbreviations:
+- cal: Calories
+- prot: Protein
+- carbs: Carbohydrates
+- fats: Fat
+- fib: Fiber
+- hyd: Hydration
+
 ## Setting Nutrition Goals
 
 You can set personalized nutrition goals to track your daily intake:

@@ -1570,7 +1570,7 @@ bot.onText(/\/leaderboard|\/top/i, async (msg) => {
         const fibPercent = Math.round(user.percentages.fiber * 100);
         const hydPercent = Math.round(user.percentages.hydration * 100);
         
-        leaderboardText += `   └─ C:${calPercent}% P:${protPercent}% C:${carbPercent}% F:${fatPercent}% Fi:${fibPercent}% H:${hydPercent}%
+        leaderboardText += `   └─ cal:${calPercent}% prot:${protPercent}% carbs:${carbPercent}% fats:${fatPercent}% fib:${fibPercent}% hyd:${hydPercent}%
 `;
       }
     }
@@ -2103,9 +2103,21 @@ async function getLeaderboardData() {
     for (const [userId, userData] of Object.entries(users)) {
       const scoreData = await calculateLeaderboardScore(parseInt(userId));
       if (scoreData && scoreData.score !== null) {
+        // Decrypt user's name for display (try different name fields)
+        let userName = 'User';
+        if (userData.fullName) {
+          userName = decrypt(userData.fullName);
+        } else if (userData.firstName && userData.lastName) {
+          userName = `${decrypt(userData.firstName)} ${decrypt(userData.lastName)}`;
+        } else if (userData.firstName) {
+          userName = decrypt(userData.firstName);
+        } else if (userData.username) {
+          userName = decrypt(userData.username);
+        }
+        
         leaderboard.push({
           userId: parseInt(userId),
-          displayName: maskUserName(userData.name),
+          displayName: maskUserName(userName),
           score: scoreData.score,
           percentages: scoreData.percentages,
           deviations: scoreData.deviations,
