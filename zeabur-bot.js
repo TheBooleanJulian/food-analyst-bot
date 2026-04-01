@@ -970,6 +970,14 @@ _Note: These are estimates based on visual analysis._`;
   }
 });
 
+// Forward channel post text messages (commands) to message handlers
+// bot.onText() only fires on 'message' events, not 'channel_post' events
+bot.on('channel_post', (msg) => {
+  if (msg.text && msg.chat.id.toString() === process.env.CHAT_ID) {
+    bot.emit('message', msg);
+  }
+});
+
 // Start message
 bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
@@ -2213,9 +2221,21 @@ async function getLeaderboardData() {
     for (const [userId, userData] of Object.entries(users)) {
       const scoreData = await calculateLeaderboardScore(parseInt(userId));
       if (scoreData && scoreData.score !== null) {
+        // Decrypt user's name for display (try different name fields)
+        let userName = 'User';
+        if (userData.fullName) {
+          userName = decrypt(userData.fullName);
+        } else if (userData.firstName && userData.lastName) {
+          userName = `${decrypt(userData.firstName)} ${decrypt(userData.lastName)}`;
+        } else if (userData.firstName) {
+          userName = decrypt(userData.firstName);
+        } else if (userData.username) {
+          userName = decrypt(userData.username);
+        }
+        
         leaderboard.push({
           userId: parseInt(userId),
-          displayName: maskUserName(userData.name),
+          displayName: maskUserName(userName),
           score: scoreData.score,
           percentages: scoreData.percentages,
           deviations: scoreData.deviations,
