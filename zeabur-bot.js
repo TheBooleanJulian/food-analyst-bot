@@ -13,46 +13,37 @@ const express = require('express');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Initialize bot with webhook (more suitable for cloud deployment)
-let bot;
-if (process.env.USE_WEBHOOK === 'true' && process.env.WEBHOOK_URL) {
-  // Use webhook mode
-  bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { 
-    webHook: { 
-      port: port,
-      host: '0.0.0.0'
-    } 
-  });
-  
-  // Set webhook
-  const webhookUrl = `${process.env.WEBHOOK_URL}/bot${process.env.TELEGRAM_BOT_TOKEN}`;
-  bot.setWebHook(webhookUrl);
-  
-  console.log('✅ Bot initialized in webhook mode');
-} else {
-  // Use polling mode with proper stopping mechanism
-  console.log('⚠️ Bot initialized in polling mode - ensure only one instance is running');
-  
-  // Stop any previous polling to prevent conflicts
-  try {
-    bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: { abortControllers: [] } });
-  } catch (e) {
-    console.log('Attempting to initialize bot with basic polling');
-    bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
+// Initialize bot (webhook mode; falls back to polling if WEBHOOK_URL not set)
+const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: false });
+
+bot.on('polling_error', (error) => {
+  if (error.code === 'EFATAL') {
+    console.error('🚨 Fatal polling error:', error.message);
+  } else {
+    console.error('Polling error:', error.message);
   }
-  
-  // Handle polling errors gracefully
-  bot.on('polling_error', (error) => {
-    if (error.code === 'EFATAL') {
-      console.error('🚨 Fatal polling error:', error.message);
-      console.error('This may be caused by multiple bot instances running. Ensure only one instance is active.');
-    } else {
-      console.error('Polling error:', error.message);
-    }
-  });
-}
+});
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+// Model configuration with fallback chain
+const MODELS = {
+  primary: 'claude-haiku-4-5-20251001',
+  fallback: 'claude-sonnet-4-6'
+};
+
+/**
+ * Call Claude with automatic model fallback.
+ * Tries MODELS.primary first; on any API error retries with MODELS.fallback.
+ */
+async function callClaude(params) {
+  try {
+    return await anthropic.messages.create({ ...params, model: MODELS.primary });
+  } catch (primaryErr) {
+    console.warn(`[callClaude] ${MODELS.primary} failed (${primaryErr.message}), retrying with ${MODELS.fallback}`);
+    return await anthropic.messages.create({ ...params, model: MODELS.fallback });
+  }
+}
 
 // Initialize Redis client
 const redisClient = redis.createClient({
@@ -806,8 +797,7 @@ Base estimates on typical serving sizes. Be specific about the food identified. 
     promptText += `\n\nThe user has provided the following description of the food: "${caption}". Please consider this information when analyzing the image.`;
   }
 
-  const message = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
+  const message = await callClaude({
     max_tokens: 1024,
     messages: [{
       role: 'user',
@@ -1459,6 +1449,20 @@ bot.on('message', async (msg) => {
   }
 });
 
+app.use(express.json());
+
+// Webhook endpoint — receives updates from Telegram
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || '';
+app.post('/webhook', (req, res) => {
+  // Verify secret token if configured
+  const secret = req.headers['x-telegram-bot-api-secret-token'];
+  if (WEBHOOK_SECRET && secret !== WEBHOOK_SECRET) {
+    return res.status(403).send('Forbidden');
+  }
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
+});
+
 // Serve static files from web directory
 app.use(express.static(path.join(__dirname, 'web')));
 
@@ -1731,12 +1735,26 @@ app.get('/api/stats', async (req, res) => {
   }
 });
 
-// Start the Express server for health checks
-app.listen(port, '0.0.0.0', () => {
+// Start the Express server, then register the webhook with Telegram
+app.listen(port, '0.0.0.0', async () => {
   console.log(`🤖 Food Analyst Bot is running on port ${port}`);
   console.log(`Dashboard available at http://localhost:${port}/`);
   console.log(`Health check available at http://localhost:${port}/health`);
   console.log(`API available at http://localhost:${port}/api/health`);
+
+  if (process.env.WEBHOOK_URL) {
+    const webhookUrl = `${process.env.WEBHOOK_URL}/webhook`;
+    try {
+      await bot.setWebHook(webhookUrl, {
+        secret_token: WEBHOOK_SECRET || undefined
+      });
+      console.log(`✅ Webhook registered: ${webhookUrl}`);
+    } catch (err) {
+      console.error('❌ Failed to register webhook:', err.message);
+    }
+  } else {
+    console.warn('⚠️ WEBHOOK_URL not set — webhook not registered');
+  }
 });
 
 // Test Redis connection
@@ -2079,8 +2097,7 @@ Consider:
 
 Return ONLY the JSON object with no additional text.`;
 
-  const message = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
+  const message = await callClaude({
     max_tokens: 1024,
     messages: [{
       role: 'user',
