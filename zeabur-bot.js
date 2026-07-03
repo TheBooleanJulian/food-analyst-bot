@@ -13,8 +13,9 @@ const express = require('express');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Initialize bot (webhook mode; falls back to polling if WEBHOOK_URL not set)
-const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: false });
+// Initialize bot: prefer webhook mode when WEBHOOK_URL is set, otherwise use polling
+const useWebhook = Boolean(process.env.WEBHOOK_URL);
+const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: !useWebhook });
 
 bot.on('polling_error', (error) => {
   if (error.code === 'EFATAL') {

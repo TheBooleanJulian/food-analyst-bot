@@ -239,6 +239,31 @@ app.get('/api/leaderboard', async (req, res) => {
   }
 });
 
+// Clear leaderboard (wipe nutrition data) - protected by ADMIN_SECRET env var
+app.post('/api/clear-leaderboard', async (req, res) => {
+  try {
+    const adminSecret = process.env.ADMIN_SECRET;
+    const provided = req.headers['x-admin-secret'] || req.body?.admin_secret;
+
+    if (!adminSecret) {
+      return res.status(403).json({ error: 'Clearing disabled: ADMIN_SECRET not configured' });
+    }
+
+    if (!provided || provided !== adminSecret) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Remove nutrition data and message associations to clear leaderboard entries
+    await redisClient.del('nutrition_data');
+    await redisClient.del('message_associations');
+
+    return res.json({ status: 'ok', message: 'Leaderboard cleared (nutrition_data and message_associations removed)' });
+  } catch (error) {
+    console.error('Error clearing leaderboard:', error);
+    res.status(500).json({ error: 'Failed to clear leaderboard', message: error.message });
+  }
+});
+
 // Stats endpoint
 app.get('/api/stats', async (req, res) => {
   try {

@@ -465,21 +465,22 @@
             card.className = `health-card ${status}`;
         }
 
-        // Leaderboard loading
+        // Leaderboard loading - fetch real data from server /api/leaderboard
         async function loadLeaderboard() {
             const timestamp = new Date().toLocaleTimeString();
-            
+
             try {
-                // In a real implementation, this would fetch from your API
-                const mockData = [
-                    { rank: 1, user: 'Jo********', score: 987, details: 'C:95% P:102% C:98% F:101% Fi:97% H:103%' },
-                    { rank: 2, user: 'Al******', score: 945, details: 'C:92% P:98% C:95% F:99% Fi:94% H:97%' },
-                    { rank: 3, user: 'Mi****', score: 912, details: 'C:89% P:95% C:92% F:96% Fi:91% H:94%' },
-                    { rank: 4, user: 'Da******', score: 876, details: 'C:85% P:91% C:88% F:92% Fi:87% H:90%' },
-                    { rank: 5, user: 'Ch******', score: 843, details: 'C:82% P:88% C:85% F:89% Fi:84% H:87%' }
-                ];
-                
-                renderLeaderboard(mockData);
+                const resp = await fetch('/api/leaderboard');
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const body = await resp.json();
+                const data = (body.leaderboard || []).map(item => ({
+                    rank: item.rank,
+                    user: item.displayName || item.user || `User ${item.userId}`,
+                    score: item.score,
+                    details: item.details || ''
+                }));
+
+                renderLeaderboard(data);
             } catch (error) {
                 document.getElementById('leaderboard-body').innerHTML = `
                     <tr>
@@ -489,7 +490,7 @@
                     </tr>
                 `;
             }
-            
+
             document.getElementById('leaderboard-last-updated').textContent = `Last updated: ${timestamp}`;
         }
 

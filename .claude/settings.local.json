@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-Content \"c:\\\\Users\\\\Temp\\\\OneDrive\\\\Documents\\\\TheBooleanJulian\\\\food-analyst-bot\\\\zeabur-bot.js\" -TotalCount 20)",
+      "PowerShell(Get-ChildItem \"c:\\\\Users\\\\Temp\\\\OneDrive\\\\Documents\\\\TheBooleanJulian\\\\food-analyst-bot\" -File | Where-Object { $_.Extension -in '.js','.ts','.mjs' } | Select-Object Name)",
+      "PowerShell(\\(Get-Content \"c:\\\\Users\\\\Temp\\\\OneDrive\\\\Documents\\\\TheBooleanJulian\\\\food-analyst-bot\\\\zeabur-bot.js\"\\).Count; \\(Get-Content \"c:\\\\Users\\\\Temp\\\\OneDrive\\\\Documents\\\\TheBooleanJulian\\\\food-analyst-bot\\\\bot.js\"\\).Count)"
+    ]
+  }
+}
