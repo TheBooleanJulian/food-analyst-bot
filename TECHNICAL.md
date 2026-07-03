@@ -54,7 +54,7 @@ The Food Analyst Bot is a Node.js application that integrates with Telegram and 
 
 ```
 food-analyst-bot/
-├── bot.js              # Main application file
+├── zeabur-bot.js       # Main application file
 ├── server.js           # Web dashboard server
 ├── web/
 │   └── index.html      # Web dashboard frontend
