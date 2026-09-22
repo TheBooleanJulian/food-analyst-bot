@@ -9,7 +9,7 @@
 ![Redis](https://img.shields.io/badge/-Redis-DC382D?logo=redis&logoColor=white)
 ![Claude AI](https://img.shields.io/badge/-Claude%20AI-D97706)
 ![Zeabur](https://img.shields.io/badge/-Zeabur-6C5CE7)
-![License](https://img.shields.io/badge/license-MIT-00D4C8.svg)
+![License](https://img.shields.io/badge/license-AGPLv3%20%2B%20Commercial-00D4C8.svg)
 
 </div>
 
@@ -40,6 +40,10 @@ Food Analyst Bot is a Telegram bot for anyone who wants effortless nutrition tra
 | AI | Anthropic Claude API (Haiku with Sonnet fallback) |
 | Storage | Redis |
 | Hosting | Zeabur (GitHub CI/CD) |
+
+## Screenshots
+
+_Screenshots coming soon._
 
 ## Quick Start
 
@@ -107,7 +111,10 @@ Deployed on Zeabur via GitHub CI/CD. Two services are configured: the bot (`zeab
 
 ## License
 
-MIT
+This project is dual licensed.
+
+- Community Edition — [GNU Affero General Public License v3 (AGPLv3)](LICENSE). Free to use, modify, and self-host. If you distribute a modified version or run it as a network service, you must make the corresponding source available.
+- Commercial License — for organisations that want to embed, modify, or distribute this software without AGPLv3's obligations. See [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md).
 
 ---
 
