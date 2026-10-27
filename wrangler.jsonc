@@ -1,0 +1,31 @@
+{
+  // Food Analyst Bot on Cloudflare Workers (webhook + Cron Trigger + Supabase via Hyperdrive + LLM gateway).
+  // Replaces zeabur-bot.js (Express + Redis on Zeabur).
+  // Secrets: BOT_TOKEN, WEBHOOK_SECRET, ENCRYPTION_KEY (same 32-char key as before, so migrated names decrypt),
+  //          DEVELOPER_CHAT_ID, CHAT_ID. No model keys: photos and goals go through thebooleanjulian-llm.
+  // Data: schema food_analyst (TheBooleanJulian/thebooleanjulian-db); Hyperdrive "food-analyst-db" logs in as
+  // food_analyst_app, which can only touch that schema.
+  "name": "food-analyst",
+  "account_id": "c580c4403524273d1bece674117472dd",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "vars": {
+    "PUBLIC_URL": "https://food-analyst.thebooleanjulian.dev",
+    "BOT_USERNAME": "FoodAnalystBot",
+    "BOT_NAME": "food-analyst"
+  },
+  "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "3ad00dcf4ba74a04952cc21a20f078d5" }],
+  "services": [{ "binding": "LLM", "service": "thebooleanjulian-llm" }],
+  // 23:59 SGT daily summary
+  "triggers": { "crons": ["59 15 * * *"] },
+  "assets": {
+    "directory": "./web",
+    "binding": "ASSETS",
+    "run_worker_first": ["/webhook", "/healthz", "/health", "/status", "/brand/*", "/api/*"]
+  },
+  "routes": [{ "pattern": "food-analyst.thebooleanjulian.dev", "custom_domain": true }],
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
+  "observability": { "enabled": true }
+}
