@@ -6,7 +6,7 @@
 //   GET  /          dashboard (web/index.html, Julian Unified UI)    /status  bot-core status page
 //   GET  /healthz   bot-core health JSON (fan-out gate)             /api/leaderboard /api/stats /api/health
 //
-// Data: schema food_analyst in the shared Supabase project via Hyperdrive. Changes from the old bot, on purpose:
+// Data: schema food_analyst_bot in the shared Supabase project via Hyperdrive. Changes from the old bot, on purpose:
 // days are Singapore dates; goals are per chat (were one global object); replies are linked to the exact entry
 // (corrections/removals by reply never worked before); multi-step questions are stored, not in-memory listeners.
 import { log, api, verifyWebhook, parseCommand, healthz, statusPage, serveBrand } from 'thebooleanjulian-bot-core';
@@ -22,43 +22,43 @@ const FLOW_TTL_MS = { goals_ai: 10 * 60e3, default: 5 * 60e3 };
 // ── storage ────────────────────────────────────────────────────────────────────────────────────────────────
 const store = {
   entries: async (sql, chat, date) =>
-    (await sql`select id, nutrition from food_analyst.entries where chat_id = ${chat} and entry_date = ${date} order by logged_at, id`)
+    (await sql`select id, nutrition from food_analyst_bot.entries where chat_id = ${chat} and entry_date = ${date} order by logged_at, id`)
       .map((r) => ({ id: r.id, ...r.nutrition })),
   addEntry: async (sql, chat, date, n) =>
-    (await sql`insert into food_analyst.entries (chat_id, entry_date, nutrition) values (${chat}, ${date}, ${sql.json(n)}) returning id`)[0].id,
-  deleteEntry: async (sql, id) => (await sql`delete from food_analyst.entries where id = ${id} returning nutrition`)[0]?.nutrition || null,
+    (await sql`insert into food_analyst_bot.entries (chat_id, entry_date, nutrition) values (${chat}, ${date}, ${sql.json(n)}) returning id`)[0].id,
+  deleteEntry: async (sql, id) => (await sql`delete from food_analyst_bot.entries where id = ${id} returning nutrition`)[0]?.nutrition || null,
   patchEntry: async (sql, id, patch) =>
-    (await sql`update food_analyst.entries set nutrition = nutrition || ${sql.json(patch)} where id = ${id} returning chat_id, entry_date`)[0] || null,
+    (await sql`update food_analyst_bot.entries set nutrition = nutrition || ${sql.json(patch)} where id = ${id} returning chat_id, entry_date`)[0] || null,
   goals: async (sql, chat) => {
-    const r = (await sql`select calories, protein, carbs, fat, fiber, hydration from food_analyst.goals where chat_id = ${chat}`)[0];
+    const r = (await sql`select calories, protein, carbs, fat, fiber, hydration from food_analyst_bot.goals where chat_id = ${chat}`)[0];
     return r ? { ...r } : { ...DEFAULT_GOALS };
   },
   setGoals: async (sql, chat, g) =>
-    sql`insert into food_analyst.goals (chat_id, calories, protein, carbs, fat, fiber, hydration, updated_at)
+    sql`insert into food_analyst_bot.goals (chat_id, calories, protein, carbs, fat, fiber, hydration, updated_at)
         values (${chat}, ${g.calories}, ${g.protein}, ${g.carbs}, ${g.fat}, ${g.fiber}, ${g.hydration}, now())
         on conflict (chat_id) do update set calories = excluded.calories, protein = excluded.protein, carbs = excluded.carbs,
         fat = excluded.fat, fiber = excluded.fiber, hydration = excluded.hydration, updated_at = now()`,
   saveUser: async (sql, env, from, profile = null) => {
     const k = env.ENCRYPTION_KEY;
     const full = from.first_name + (from.last_name ? ` ${from.last_name}` : '');
-    await sql`insert into food_analyst.users (user_id, first_name_enc, last_name_enc, username_enc, full_name_enc, profile, last_seen)
+    await sql`insert into food_analyst_bot.users (user_id, first_name_enc, last_name_enc, username_enc, full_name_enc, profile, last_seen)
       values (${String(from.id)}, ${encrypt(from.first_name, k) || null}, ${encrypt(from.last_name, k) || null},
               ${encrypt(from.username, k) || null}, ${encrypt(full, k) || null}, ${sql.json(profile || {})}, now())
       on conflict (user_id) do update set first_name_enc = excluded.first_name_enc, last_name_enc = excluded.last_name_enc,
         username_enc = excluded.username_enc, full_name_enc = excluded.full_name_enc, last_seen = now(),
-        profile = case when ${profile !== null} then excluded.profile else food_analyst.users.profile end`;
+        profile = case when ${profile !== null} then excluded.profile else food_analyst_bot.users.profile end`;
   },
-  users: async (sql) => sql`select user_id, first_name_enc, last_name_enc, username_enc, full_name_enc, last_seen from food_analyst.users order by last_seen desc nulls last`,
-  link: async (sql, chat, msgId) => (await sql`select entry_id, nutrition from food_analyst.message_links where chat_id = ${chat} and message_id = ${String(msgId)}`)[0] || null,
+  users: async (sql) => sql`select user_id, first_name_enc, last_name_enc, username_enc, full_name_enc, last_seen from food_analyst_bot.users order by last_seen desc nulls last`,
+  link: async (sql, chat, msgId) => (await sql`select entry_id, nutrition from food_analyst_bot.message_links where chat_id = ${chat} and message_id = ${String(msgId)}`)[0] || null,
   saveLink: async (sql, chat, msgId, entryId, n) =>
-    sql`insert into food_analyst.message_links (chat_id, message_id, entry_id, nutrition) values (${chat}, ${String(msgId)}, ${entryId}, ${sql.json(n)})
+    sql`insert into food_analyst_bot.message_links (chat_id, message_id, entry_id, nutrition) values (${chat}, ${String(msgId)}, ${entryId}, ${sql.json(n)})
         on conflict (chat_id, message_id) do update set entry_id = excluded.entry_id, nutrition = excluded.nutrition`,
-  conversation: async (sql, chat, user) => (await sql`select flow, step, state, updated_at from food_analyst.conversations where chat_id = ${chat} and user_id = ${user}`)[0] || null,
+  conversation: async (sql, chat, user) => (await sql`select flow, step, state, updated_at from food_analyst_bot.conversations where chat_id = ${chat} and user_id = ${user}`)[0] || null,
   setConversation: async (sql, chat, user, flow, step, state = {}) =>
-    sql`insert into food_analyst.conversations (chat_id, user_id, flow, step, state, updated_at) values (${chat}, ${user}, ${flow}, ${step}, ${sql.json(state)}, now())
+    sql`insert into food_analyst_bot.conversations (chat_id, user_id, flow, step, state, updated_at) values (${chat}, ${user}, ${flow}, ${step}, ${sql.json(state)}, now())
         on conflict (chat_id, user_id) do update set flow = excluded.flow, step = excluded.step, state = excluded.state, updated_at = now()`,
-  clearConversation: async (sql, chat, user) => sql`delete from food_analyst.conversations where chat_id = ${chat} and user_id = ${user}`,
-  chatsOn: async (sql, date) => (await sql`select distinct chat_id from food_analyst.entries where entry_date = ${date}`).map((r) => r.chat_id)
+  clearConversation: async (sql, chat, user) => sql`delete from food_analyst_bot.conversations where chat_id = ${chat} and user_id = ${user}`,
+  chatsOn: async (sql, date) => (await sql`select distinct chat_id from food_analyst_bot.entries where entry_date = ${date}`).map((r) => r.chat_id)
 };
 
 // ── telegram helpers ───────────────────────────────────────────────────────────────────────────────────────
@@ -331,8 +331,8 @@ async function dbStatus(env) {
   try {
     return await withDb(env, null, async (sql) => ({
       checks: { postgres: 'ok' },
-      today: (await sql`select count(*)::int as n from food_analyst.entries where entry_date = ${sgtDate()}`)[0].n,
-      users: (await sql`select count(*)::int as n from food_analyst.users`)[0].n
+      today: (await sql`select count(*)::int as n from food_analyst_bot.entries where entry_date = ${sgtDate()}`)[0].n,
+      users: (await sql`select count(*)::int as n from food_analyst_bot.users`)[0].n
     }));
   } catch (err) {
     return { checks: { postgres: `FAIL: ${String(err.message).replace(/postgres(ql)?:\/\/\S+/g, '<conn>')}` }, today: null, users: null };

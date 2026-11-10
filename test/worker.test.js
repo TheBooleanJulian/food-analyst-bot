@@ -11,22 +11,22 @@ function fakeDb() {
   const db = { entries: [], goals: new Map(), users: new Map(), links: new Map(), convs: new Map(), nextId: 1 };
   const sql = async (strings, ...v) => {
     const q = strings.join('?').replace(/\s+/g, ' ').trim().toLowerCase();
-    if (q.startsWith('select id, nutrition from food_analyst.entries')) return db.entries.filter((e) => e.chat_id === v[0] && e.entry_date === v[1]).map(({ id, nutrition }) => ({ id, nutrition }));
-    if (q.startsWith('insert into food_analyst.entries')) { const id = db.nextId++; db.entries.push({ id, chat_id: v[0], entry_date: v[1], nutrition: v[2] }); return [{ id }]; }
-    if (q.startsWith('delete from food_analyst.entries')) { const i = db.entries.findIndex((e) => e.id === v[0]); if (i < 0) return []; const [e] = db.entries.splice(i, 1); return [{ nutrition: e.nutrition }]; }
-    if (q.startsWith('update food_analyst.entries')) { const e = db.entries.find((x) => x.id === v[1]); if (!e) return []; e.nutrition = { ...e.nutrition, ...v[0] }; return [{ chat_id: e.chat_id, entry_date: e.entry_date }]; }
+    if (q.startsWith('select id, nutrition from food_analyst_bot.entries')) return db.entries.filter((e) => e.chat_id === v[0] && e.entry_date === v[1]).map(({ id, nutrition }) => ({ id, nutrition }));
+    if (q.startsWith('insert into food_analyst_bot.entries')) { const id = db.nextId++; db.entries.push({ id, chat_id: v[0], entry_date: v[1], nutrition: v[2] }); return [{ id }]; }
+    if (q.startsWith('delete from food_analyst_bot.entries')) { const i = db.entries.findIndex((e) => e.id === v[0]); if (i < 0) return []; const [e] = db.entries.splice(i, 1); return [{ nutrition: e.nutrition }]; }
+    if (q.startsWith('update food_analyst_bot.entries')) { const e = db.entries.find((x) => x.id === v[1]); if (!e) return []; e.nutrition = { ...e.nutrition, ...v[0] }; return [{ chat_id: e.chat_id, entry_date: e.entry_date }]; }
     if (q.startsWith('select calories, protein')) return db.goals.has(v[0]) ? [db.goals.get(v[0])] : [];
-    if (q.startsWith('insert into food_analyst.goals')) { db.goals.set(v[0], { calories: v[1], protein: v[2], carbs: v[3], fat: v[4], fiber: v[5], hydration: v[6] }); return []; }
-    if (q.startsWith('insert into food_analyst.users')) { db.users.set(v[0], { user_id: v[0], full_name_enc: v[4], last_seen: new Date() }); return []; }
+    if (q.startsWith('insert into food_analyst_bot.goals')) { db.goals.set(v[0], { calories: v[1], protein: v[2], carbs: v[3], fat: v[4], fiber: v[5], hydration: v[6] }); return []; }
+    if (q.startsWith('insert into food_analyst_bot.users')) { db.users.set(v[0], { user_id: v[0], full_name_enc: v[4], last_seen: new Date() }); return []; }
     if (q.startsWith('select user_id')) return [...db.users.values()];
-    if (q.startsWith('select entry_id, nutrition from food_analyst.message_links')) return db.links.has(`${v[0]}:${v[1]}`) ? [db.links.get(`${v[0]}:${v[1]}`)] : [];
-    if (q.startsWith('insert into food_analyst.message_links')) { db.links.set(`${v[0]}:${v[1]}`, { entry_id: v[2], nutrition: v[3] }); return []; }
+    if (q.startsWith('select entry_id, nutrition from food_analyst_bot.message_links')) return db.links.has(`${v[0]}:${v[1]}`) ? [db.links.get(`${v[0]}:${v[1]}`)] : [];
+    if (q.startsWith('insert into food_analyst_bot.message_links')) { db.links.set(`${v[0]}:${v[1]}`, { entry_id: v[2], nutrition: v[3] }); return []; }
     if (q.startsWith('select flow, step, state')) return db.convs.has(`${v[0]}:${v[1]}`) ? [db.convs.get(`${v[0]}:${v[1]}`)] : [];
-    if (q.startsWith('insert into food_analyst.conversations')) { db.convs.set(`${v[0]}:${v[1]}`, { flow: v[2], step: v[3], state: v[4], updated_at: new Date() }); return []; }
-    if (q.startsWith('delete from food_analyst.conversations')) { db.convs.delete(`${v[0]}:${v[1]}`); return []; }
+    if (q.startsWith('insert into food_analyst_bot.conversations')) { db.convs.set(`${v[0]}:${v[1]}`, { flow: v[2], step: v[3], state: v[4], updated_at: new Date() }); return []; }
+    if (q.startsWith('delete from food_analyst_bot.conversations')) { db.convs.delete(`${v[0]}:${v[1]}`); return []; }
     if (q.startsWith('select distinct chat_id')) return [...new Set(db.entries.filter((e) => e.entry_date === v[0]).map((e) => e.chat_id))].map((chat_id) => ({ chat_id }));
-    if (q.startsWith('select count(*)::int as n from food_analyst.entries')) return [{ n: db.entries.length }];
-    if (q.startsWith('select count(*)::int as n from food_analyst.users')) return [{ n: db.users.size }];
+    if (q.startsWith('select count(*)::int as n from food_analyst_bot.entries')) return [{ n: db.entries.length }];
+    if (q.startsWith('select count(*)::int as n from food_analyst_bot.users')) return [{ n: db.users.size }];
     throw new Error('unexpected query: ' + q);
   };
   sql.json = (x) => x;

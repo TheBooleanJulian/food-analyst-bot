@@ -3,8 +3,8 @@
   // Replaces zeabur-bot.js (Express + Redis on Zeabur).
   // Secrets: BOT_TOKEN, WEBHOOK_SECRET, ENCRYPTION_KEY (same 32-char key as before, so migrated names decrypt),
   //          DEVELOPER_CHAT_ID, CHAT_ID. No model keys: photos and goals go through thebooleanjulian-llm.
-  // Data: schema food_analyst (TheBooleanJulian/thebooleanjulian-db); Hyperdrive "food-analyst-db" logs in as
-  // food_analyst_app, which can only touch that schema.
+  // Data: schema food_analyst_bot (TheBooleanJulian/thebooleanjulian-db); Hyperdrive "food-analyst-bot-db" logs in as
+  // food_analyst_bot_app, which can only touch that schema.
   "name": "food-analyst",
   "account_id": "c580c4403524273d1bece674117472dd",
   "main": "worker.js",
